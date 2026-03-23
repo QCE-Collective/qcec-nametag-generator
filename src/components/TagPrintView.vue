@@ -16,6 +16,8 @@
           :font-weight="field.fontWeight ?? 400"
           :color="field.color ?? '#000000'"
           :align="field.align ?? 'left'"
+          :capitalize="field.capitalize ?? false"
+          :drop-shadow="field.dropShadow ?? false"
           :width-px="px(field, 'width')"
           :height-px="px(field, 'height')"
         />

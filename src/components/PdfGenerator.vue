@@ -31,8 +31,9 @@ const props = withDefaults(
     rows: Record<string, string>[];
     tagWidthMm?: number;
     tagHeightMm?: number;
+    showFoldLine?: boolean;
   }>(),
-  { tagWidthMm: 180, tagHeightMm: 55 }
+  { tagWidthMm: 180, tagHeightMm: 55, showFoldLine: false }
 );
 
 const emit = defineEmits<{
@@ -91,7 +92,8 @@ async function generate(): Promise<Blob | null> {
       renderAndGetPage,
       (p) => emit('progress', p),
       props.tagWidthMm,
-      props.tagHeightMm
+      props.tagHeightMm,
+      props.showFoldLine
     );
     emit('complete');
     currentPageRows.value = [];

@@ -6,6 +6,9 @@ import {
   TAGS_PER_PAGE,
   VERTICAL_SPACING_MM,
   HORIZONTAL_MARGIN_MM,
+  TOP_MARGIN_MM,
+  A4_WIDTH_MM,
+  A4_HEIGHT_MM,
 } from 'src/types/nametag';
 
 const PX_PER_MM = 6;
@@ -67,7 +70,8 @@ export async function generatePdf(
   ) => Promise<HTMLElement>,
   onProgress?: (progress: PdfProgress) => void,
   tagWidthMm = 180,
-  tagHeightMm = 55
+  tagHeightMm = 55,
+  showFoldLine = false
 ): Promise<Blob> {
   const pageContentHeightMm =
     TAGS_PER_PAGE * tagHeightMm + (TAGS_PER_PAGE - 1) * VERTICAL_SPACING_MM;
@@ -78,7 +82,7 @@ export async function generatePdf(
   });
 
   const horizontalMargin = HORIZONTAL_MARGIN_MM;
-  const topMargin = 1;
+  const topMargin = TOP_MARGIN_MM;
   const total = rows.length;
 
   const getBackgroundIndex = (row: Record<string, string>) => {
@@ -142,6 +146,37 @@ export async function generatePdf(
       tagWidthMm,
       pageContentHeightMm
     );
+
+    // Main vertical trim lines: nametag strip edges (more visible for guillotine)
+    doc.setDrawColor(80, 80, 80);
+    doc.setLineWidth(0.3);
+    doc.line(horizontalMargin, 0, horizontalMargin, A4_HEIGHT_MM);
+    doc.line(horizontalMargin + tagWidthMm, 0, horizontalMargin + tagWidthMm, A4_HEIGHT_MM);
+
+    // Secondary trim lines: page edges and tag top/bottom (faint gray)
+    doc.setDrawColor(180, 180, 180);
+    doc.setLineWidth(0.15);
+    doc.line(0, 0, 0, A4_HEIGHT_MM);
+    doc.line(A4_WIDTH_MM, 0, A4_WIDTH_MM, A4_HEIGHT_MM);
+
+    // Horizontal trim lines: top and bottom of each tag (full page width)
+    for (let i = 0; i < TAGS_PER_PAGE; i++) {
+      const tagTop = topMargin + i * (tagHeightMm + VERTICAL_SPACING_MM);
+      const tagBottom = tagTop + tagHeightMm;
+      doc.line(0, tagTop, A4_WIDTH_MM, tagTop);
+      doc.line(0, tagBottom, A4_WIDTH_MM, tagBottom);
+    }
+
+    // Fold line: vertical line at center of each tag (when enabled)
+    if (showFoldLine) {
+      const foldX = horizontalMargin + tagWidthMm / 2;
+      doc.setDrawColor(200, 200, 200); // Slightly fainter for fold
+      for (let i = 0; i < TAGS_PER_PAGE; i++) {
+        const tagTop = topMargin + i * (tagHeightMm + VERTICAL_SPACING_MM);
+        const tagBottom = tagTop + tagHeightMm;
+        doc.line(foldX, tagTop, foldX, tagBottom);
+      }
+    }
 
     const completedTags = Math.min((pageNum + 1) * TAGS_PER_PAGE, total);
     onProgress?.({ phase: 'tags', current: completedTags, total });

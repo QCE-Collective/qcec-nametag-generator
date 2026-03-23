@@ -26,6 +26,7 @@ export interface Field {
   color?: string;
   align?: TextAlign;
   capitalize?: boolean;
+  dropShadow?: boolean;
 
   // qr only
   qrColor?: string;
@@ -57,3 +58,4 @@ export const A4_HEIGHT_MM = 297;
 export const TAGS_PER_PAGE = 5;
 export const VERTICAL_SPACING_MM = 2; // Small margin between tags
 export const HORIZONTAL_MARGIN_MM = 10;
+export const TOP_MARGIN_MM = 8; // Top margin for PDF export

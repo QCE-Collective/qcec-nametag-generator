@@ -22,10 +22,11 @@ const props = withDefaults(
     color?: string;
     align?: 'left' | 'center' | 'right';
     capitalize?: boolean;
+    dropShadow?: boolean;
     widthPx: number;
     heightPx: number;
   }>(),
-  { fontWeight: 400, color: '#000000', align: 'left', capitalize: false }
+  { fontWeight: 400, color: '#000000', align: 'left', capitalize: false, dropShadow: false }
 );
 
 const displayText = computed(() =>
@@ -39,14 +40,42 @@ const fittedFontSize = ref(props.fontSize);
 
 const justifyMap = { left: 'flex-start', center: 'center', right: 'flex-end' } as const;
 
-const textStyle = computed(() => ({
-  fontSize: `${fittedFontSize.value}px`,
-  fontFamily: props.fontFamily,
-  fontWeight: props.fontWeight,
-  color: props.color,
-  textAlign: props.align,
-  justifyContent: justifyMap[props.align],
-}));
+/** Returns relative luminance 0–1. Dark colors → low, light colors → high */
+function getLuminance(hex: string): number {
+  const m = hex?.replace(/^#/, '').match(/^([a-f\d])([a-f\d])([a-f\d])$/i);
+  let r: number, g: number, b: number;
+  if (m && m[1] != null && m[2] != null && m[3] != null) {
+    r = parseInt(m[1] + m[1], 16);
+    g = parseInt(m[2] + m[2], 16);
+    b = parseInt(m[3] + m[3], 16);
+  } else {
+    const m2 = hex?.replace(/^#/, '').match(/^([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i);
+    if (!m2 || m2[1] == null || m2[2] == null || m2[3] == null) return 0.5;
+    r = parseInt(m2[1], 16);
+    g = parseInt(m2[2], 16);
+    b = parseInt(m2[3], 16);
+  }
+  return (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+}
+
+const textStyle = computed(() => {
+  let textShadow = 'none';
+  if (props.dropShadow && props.color) {
+    const luminance = getLuminance(props.color);
+    // Dark font → white shadow; light font → black shadow (for readability on any background)
+    const shadowColor = luminance < 0.5 ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.5)';
+    textShadow = `0 0 36px ${shadowColor}`;
+  }
+  return {
+    fontSize: `${fittedFontSize.value}px`,
+    fontFamily: props.fontFamily,
+    fontWeight: props.fontWeight,
+    color: props.color,
+    textAlign: props.align,
+    justifyContent: justifyMap[props.align],
+    textShadow,
+  };
+});
 
 async function fitFontSize() {
   const el = containerRef.value;
@@ -74,7 +103,7 @@ function runFit() {
 onMounted(runFit);
 
 watch(
-  () => [props.text, props.capitalize, props.fontSize, props.fontFamily, props.fontWeight, props.color, props.align, props.widthPx, props.heightPx],
+  () => [props.text, props.capitalize, props.fontSize, props.fontFamily, props.fontWeight, props.color, props.align, props.dropShadow, props.widthPx, props.heightPx],
   runFit
 );
 </script>

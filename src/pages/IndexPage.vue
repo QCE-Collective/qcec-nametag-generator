@@ -187,6 +187,7 @@
       :rows="csvRows"
       :tag-width-mm="tagWidthMm"
       :tag-height-mm="tagHeightMm"
+      :show-fold-line="showFoldLine"
       @complete="isGenerating = false"
       @error="onPdfError"
       @progress="onPdfProgress"

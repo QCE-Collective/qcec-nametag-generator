@@ -174,6 +174,13 @@
             class="q-mb-sm"
             @update:model-value="(v) => selectedField && updateField(selectedField.id, { capitalize: Boolean(v) })"
           />
+          <q-checkbox
+            :model-value="selectedField!.dropShadow ?? false"
+            label="Drop shadow"
+            dense
+            class="q-mb-sm"
+            @update:model-value="(v) => selectedField && updateField(selectedField.id, { dropShadow: Boolean(v) })"
+          />
         </template>
 
         <template v-if="selectedField.type === 'qr'">

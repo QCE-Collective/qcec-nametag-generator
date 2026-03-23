@@ -45,6 +45,7 @@
               :color="field.color ?? '#000000'"
               :align="field.align ?? 'left'"
               :capitalize="field.capitalize ?? false"
+              :drop-shadow="field.dropShadow ?? false"
               :width-px="mmToPx(field.width)"
               :height-px="mmToPx(field.height)"
             />

@@ -6,6 +6,7 @@
       <div class="q-gutter-sm q-mb-md">
         <q-btn color="primary" icon="text_fields" label="Add Text" size="sm" @click="onAddField('text')" />
         <q-btn color="primary" icon="qr_code_2" label="Add QR" size="sm" @click="onAddField('qr')" />
+        <q-btn color="primary" icon="circle" label="Add Circle" size="sm" @click="onAddField('circle')" />
       </div>
 
       <q-list v-if="fields.length > 0" bordered separator class="rounded-borders">
@@ -19,7 +20,7 @@
           @click="onSelectField($event, field.id)"
         >
           <q-item-section avatar>
-            <q-icon :name="field.type === 'text' ? 'text_fields' : 'qr_code_2'" />
+            <q-icon :name="field.type === 'text' ? 'text_fields' : field.type === 'qr' ? 'qr_code_2' : 'circle'" />
           </q-item-section>
           <q-item-section>
             <q-item-label>{{ field.csvKey }}</q-item-label>
@@ -190,6 +191,95 @@
           </div>
         </template>
 
+        <template v-if="selectedField.type === 'circle'">
+          <div class="row items-center q-gutter-sm q-mb-sm">
+            <span class="text-body2">Default fill</span>
+            <q-btn
+              flat
+              dense
+              :style="{ background: (selectedField!.defaultFillColor || '#cccccc') }"
+              class="qr-color-swatch"
+            >
+              <q-popup-proxy cover transition-show="scale" transition-hide="scale">
+                <q-color
+                  :model-value="(selectedField!.defaultFillColor || '#cccccc') as string"
+                  no-header
+                  @update:model-value="(v: string | null) => selectedField && v != null && updateField(selectedField.id, { defaultFillColor: v })"
+                />
+              </q-popup-proxy>
+            </q-btn>
+          </div>
+          <div class="row items-center q-gutter-sm q-mb-sm">
+            <span class="text-body2">Default border</span>
+            <q-btn
+              flat
+              dense
+              :style="{ background: (selectedField!.defaultBorderColor || '#000000') }"
+              class="qr-color-swatch"
+            >
+              <q-popup-proxy cover transition-show="scale" transition-hide="scale">
+                <q-color
+                  :model-value="(selectedField!.defaultBorderColor || '#000000') as string"
+                  no-header
+                  @update:model-value="(v: string | null) => selectedField && v != null && updateField(selectedField.id, { defaultBorderColor: v })"
+                />
+              </q-popup-proxy>
+            </q-btn>
+          </div>
+          <q-input
+            :model-value="selectedField!.borderWidthMm ?? 0.5"
+            label="Border width (mm)"
+            type="number"
+            min="0"
+            step="0.1"
+            dense
+            class="q-mb-sm"
+            @update:model-value="(v) => selectedField && updateField(selectedField.id, { borderWidthMm: Number(v) || 0 })"
+          />
+          <div class="text-caption q-mb-xs">Color rules (CSV column contains → colors)</div>
+          <div
+            v-for="(rule, idx) in (selectedField!.colorRules ?? [])"
+            :key="idx"
+            class="color-rule-row q-mb-sm"
+          >
+            <q-input
+              :model-value="rule.contains"
+              placeholder="Contains text..."
+              dense
+              hide-bottom-space
+              class="col"
+              @update:model-value="(v) => updateColorRule(idx, { contains: String(v ?? '') })"
+            />
+            <q-btn flat dense round :style="{ background: rule.fillColor }" class="color-swatch">
+              <q-popup-proxy cover transition-show="scale" transition-hide="scale">
+                <q-color
+                  :model-value="rule.fillColor"
+                  no-header
+                  @update:model-value="(v: string | null) => v != null && updateColorRule(idx, { fillColor: v })"
+                />
+              </q-popup-proxy>
+            </q-btn>
+            <q-btn flat dense round :style="{ background: rule.borderColor ?? rule.fillColor }" class="color-swatch">
+              <q-popup-proxy cover transition-show="scale" transition-hide="scale">
+                <q-color
+                  :model-value="(rule.borderColor ?? rule.fillColor) ?? '#000000'"
+                  no-header
+                  @update:model-value="(v: string | null) => v != null && updateColorRule(idx, { borderColor: v })"
+                />
+              </q-popup-proxy>
+            </q-btn>
+            <q-btn flat dense round icon="delete" size="sm" @click="removeColorRule(idx)" />
+          </div>
+          <q-btn flat dense icon="add" label="Add rule" size="sm" @click="addColorRule" />
+          <q-checkbox
+            :model-value="selectedField!.hideCircleWhenNoMatch ?? false"
+            label="If no matches, hide circle"
+            dense
+            class="q-mt-sm"
+            @update:model-value="(v) => selectedField && updateField(selectedField.id, { hideCircleWhenNoMatch: Boolean(v) })"
+          />
+        </template>
+
         <q-btn flat icon="content_copy" label="Duplicate" size="sm" @click="selectedField && onDuplicateField(selectedField.id)" />
       </div>
     </div>
@@ -197,10 +287,10 @@
 </template>
 
 <script setup lang="ts">
-import type { Field } from 'src/types/nametag';
+import type { Field, CircleColorRule } from 'src/types/nametag';
 import { GOOGLE_FONTS, LOCAL_FONTS, SYSTEM_FONTS, FONT_WEIGHTS, loadGoogleFont } from 'src/constants/fonts';
 
-defineProps<{
+const props = defineProps<{
   fields: Field[];
   selectedFieldIds: string[];
   selectedField: Field | null;
@@ -209,7 +299,7 @@ defineProps<{
 }>();
 
 const emit = defineEmits<{
-  addField: [type: 'text' | 'qr'];
+  addField: [type: 'text' | 'qr' | 'circle'];
   selectField: [id: string | null, addToSelection?: boolean];
   updateField: [id: string, updates: Partial<Field>];
   removeField: [id: string];
@@ -244,8 +334,41 @@ function onFontChange(id: string, fontFamily: string) {
   emit('updateField', id, { fontFamily });
 }
 
-function onAddField(type: 'text' | 'qr') {
+function onAddField(type: 'text' | 'qr' | 'circle') {
   emit('addField', type);
+}
+
+function updateColorRule(
+  idx: number,
+  updates: Partial<{ contains: string; fillColor: string; borderColor: string }>
+) {
+  const f = props.selectedField;
+  if (!f || f.type !== 'circle') return;
+  const rules = [...(f.colorRules ?? [])];
+  if (idx < 0 || idx >= rules.length) return;
+  const current = rules[idx]!;
+  const borderVal = updates.borderColor ?? current.borderColor;
+  const next: CircleColorRule = {
+    contains: updates.contains ?? current.contains,
+    fillColor: updates.fillColor ?? current.fillColor,
+    ...(borderVal !== undefined ? { borderColor: borderVal } : {}),
+  };
+  rules[idx] = next;
+  emit('updateField', f.id, { colorRules: rules });
+}
+
+function addColorRule() {
+  const f = props.selectedField;
+  if (!f || f.type !== 'circle') return;
+  const rules = [...(f.colorRules ?? []), { contains: '', fillColor: '#ff0000', borderColor: '#000000' }];
+  emit('updateField', f.id, { colorRules: rules });
+}
+
+function removeColorRule(idx: number) {
+  const f = props.selectedField;
+  if (!f || f.type !== 'circle') return;
+  const rules = (f.colorRules ?? []).filter((_: unknown, i: number) => i !== idx);
+  emit('updateField', f.id, { colorRules: rules });
 }
 
 function onSelectField(e: Event, id: string) {
@@ -293,10 +416,21 @@ function onDuplicateField(id: string) {
   padding-top: 1rem;
 }
 
-.qr-color-swatch {
+.qr-color-swatch,
+.color-swatch {
   min-width: 36px;
   min-height: 36px;
   border: 1px solid rgba(0, 0, 0, 0.2);
   border-radius: 4px;
+}
+
+.color-rule-row {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.color-rule-row .col {
+  flex: 1;
 }
 </style>

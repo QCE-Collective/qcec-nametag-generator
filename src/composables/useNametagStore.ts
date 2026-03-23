@@ -101,15 +101,15 @@ function createStore() {
     backgroundImages.value = [];
   }
 
-  function addField(type: 'text' | 'qr'): Field {
+  function addField(type: 'text' | 'qr' | 'circle'): Field {
     const firstKey = csvHeaders.value[0] ?? 'Name';
     const field: Field = {
       id: generateId(),
       type,
       x: 10,
       y: 10,
-      width: type === 'text' ? 80 : 25,
-      height: type === 'text' ? 8 : 25,
+      width: type === 'text' ? 80 : type === 'circle' ? 8 : 25,
+      height: type === 'text' ? 8 : type === 'circle' ? 8 : 25,
       csvKey: firstKey,
       ...(type === 'qr' && { qrColor: '#000000' }),
       ...(type === 'text' && {
@@ -119,6 +119,13 @@ function createStore() {
         color: '#000000',
         align: 'left' as const,
         capitalize: false,
+      }),
+      ...(type === 'circle' && {
+        defaultFillColor: '#cccccc',
+        defaultBorderColor: '#000000',
+        borderWidthMm: 0.5,
+        colorRules: [],
+        hideCircleWhenNoMatch: false,
       }),
     };
     fields.value = [...fields.value, field];

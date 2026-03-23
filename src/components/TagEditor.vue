@@ -49,13 +49,19 @@
               :height-px="mmToPx(field.height)"
             />
           </div>
-          <div v-else class="field-qr">
+          <div v-else-if="field.type === 'qr'" class="field-qr">
             <QrField
               :value="getFieldValue(field)"
               :width-px="mmToPx(field.width)"
               :height-px="mmToPx(field.height)"
               :csv-key="field.csvKey"
               :qr-color="field.qrColor ?? '#000000'"
+            />
+          </div>
+          <div v-else-if="field.type === 'circle'" class="field-circle">
+            <div
+              class="circle"
+              :style="getCircleStyle(field)"
             />
           </div>
           <div v-if="selectedFieldId === field.id && selectedFieldIds.length === 1" class="resize-handle" @mousedown.stop="onResizeStart($event, field)" />
@@ -71,6 +77,7 @@ import QrField from './QrField.vue';
 import AutoFitText from './AutoFitText.vue';
 import type { Field } from 'src/types/nametag';
 import { SAFE_MARGIN_MM } from 'src/types/nametag';
+import { resolveCircleColors } from 'src/utils/colorRules';
 
 const MM_TO_PX = 6; // Match print scale (6px/mm) so background displays 1:1
 
@@ -218,6 +225,30 @@ function getFieldStyle(field: Field) {
 function getFieldValue(field: Field): string {
   const val = props.previewRow[field.csvKey];
   return val ?? `{{${field.csvKey}}}`;
+}
+
+function getCircleStyle(field: Field) {
+  const cellValue = props.previewRow[field.csvKey] ?? '';
+  const resolved = resolveCircleColors(field, cellValue);
+  const borderWidthPx = (field.borderWidthMm ?? 0.5) * MM_TO_PX;
+  const size = Math.min(mmToPx(field.width), mmToPx(field.height));
+  const noMatchPlaceholder =
+    field.hideCircleWhenNoMatch && !resolved.matched
+      ? {
+          backgroundColor: '#808080',
+          border: `${borderWidthPx}px solid #808080`,
+          opacity: 0.5,
+        }
+      : {};
+  return {
+    width: `${size}px`,
+    height: `${size}px`,
+    borderRadius: '50%',
+    backgroundColor: resolved.fillColor,
+    border: `${borderWidthPx}px solid ${resolved.borderColor}`,
+    boxSizing: 'border-box' as const,
+    ...noMatchPlaceholder,
+  };
 }
 
 let dragField: Field | null = null;
@@ -411,6 +442,18 @@ function onKeyDown(e: KeyboardEvent) {
   max-width: 100%;
   max-height: 100%;
   object-fit: contain;
+}
+
+.field-circle {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.field-circle .circle {
+  flex-shrink: 0;
 }
 
 .resize-handle {

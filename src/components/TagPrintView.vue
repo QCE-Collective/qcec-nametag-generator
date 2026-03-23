@@ -20,8 +20,11 @@
           :height-px="px(field, 'height')"
         />
       </div>
-      <div v-else class="field-qr">
+      <div v-else-if="field.type === 'qr'" class="field-qr">
         <img v-if="getQrUrl(field)" :src="getQrUrl(field)" :alt="field.csvKey" />
+      </div>
+      <div v-else-if="field.type === 'circle'" class="field-circle">
+        <div v-if="!isCircleHidden(field)" class="circle" :style="getCircleStyle(field)" />
       </div>
     </div>
   </div>
@@ -31,6 +34,7 @@
 import { computed, ref, watch } from 'vue';
 import AutoFitText from './AutoFitText.vue';
 import type { Field } from 'src/types/nametag';
+import { resolveCircleColors } from 'src/utils/colorRules';
 
 /** Print scale: 1mm = PX_PER_MM pixels (2x for print quality) */
 const PX_PER_MM = 6;
@@ -112,6 +116,28 @@ function getQrUrl(field: Field): string {
   const val = getValue(field);
   return props.qrUrls?.get(`${field.id}|${val}`) ?? '';
 }
+
+function isCircleHidden(field: Field): boolean {
+  if (field.type !== 'circle' || !field.hideCircleWhenNoMatch) return false;
+  const cellValue = props.row[field.csvKey] ?? '';
+  const { matched } = resolveCircleColors(field, cellValue);
+  return !matched;
+}
+
+function getCircleStyle(field: Field) {
+  const cellValue = props.row[field.csvKey] ?? '';
+  const { fillColor, borderColor } = resolveCircleColors(field, cellValue);
+  const borderWidthPx = (field.borderWidthMm ?? 0.5) * PX_PER_MM;
+  const size = Math.min(px(field, 'width'), px(field, 'height'));
+  return {
+    width: `${size}px`,
+    height: `${size}px`,
+    borderRadius: '50%',
+    backgroundColor: fillColor,
+    border: `${borderWidthPx}px solid ${borderColor}`,
+    boxSizing: 'border-box' as const,
+  };
+}
 </script>
 
 <style scoped>
@@ -152,5 +178,17 @@ function getQrUrl(field: Field): string {
   max-width: 100%;
   max-height: 100%;
   object-fit: contain;
+}
+
+.field-circle {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.field-circle .circle {
+  flex-shrink: 0;
 }
 </style>

@@ -1,7 +1,14 @@
 /** All measurements are in mm */
-export type FieldType = 'text' | 'qr';
+export type FieldType = 'text' | 'qr' | 'circle';
 
 export type TextAlign = 'left' | 'center' | 'right';
+
+/** Rule: if CSV cell contains this text, use these colors */
+export interface CircleColorRule {
+  contains: string;
+  fillColor: string;
+  borderColor?: string;
+}
 
 export interface Field {
   id: string;
@@ -22,6 +29,13 @@ export interface Field {
 
   // qr only
   qrColor?: string;
+
+  // circle only
+  defaultFillColor?: string;
+  defaultBorderColor?: string;
+  borderWidthMm?: number;
+  colorRules?: CircleColorRule[];
+  hideCircleWhenNoMatch?: boolean;
 
   csvKey: string;
 }

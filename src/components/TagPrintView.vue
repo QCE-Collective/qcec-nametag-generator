@@ -11,7 +11,7 @@
         <AutoFitText
           :text="getValue(field)"
           @fitted="onTextFitted"
-          :font-size="(field.fontSize ?? 14) * (PX_PER_MM / 3)"
+          :font-size="field.fontSize ?? 14"
           :font-family="field.fontFamily ?? 'sans-serif'"
           :font-weight="field.fontWeight ?? 400"
           :color="field.color ?? '#000000'"

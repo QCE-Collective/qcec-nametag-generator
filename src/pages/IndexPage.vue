@@ -28,6 +28,38 @@
           <q-tooltip>Reset all</q-tooltip>
         </q-btn>
         <q-separator vertical />
+        <div v-if="hasCsv" class="row items-center q-gutter-sm">
+          <q-select
+            v-model="primarySort"
+            :options="sortOptions"
+            label="Primary sort"
+            dense
+            outlined
+            emit-value
+            map-options
+            options-dense
+            class="sort-select"
+            style="min-width: 140px"
+          >
+            <template #prepend>
+              <q-icon name="sort" size="xs" />
+            </template>
+          </q-select>
+          <q-select
+            v-model="secondarySort"
+            :options="sortOptions"
+            label="Secondary sort"
+            dense
+            outlined
+            emit-value
+            map-options
+            options-dense
+            clearable
+            class="sort-select"
+            style="min-width: 140px"
+          />
+        </div>
+        <q-separator vertical v-if="hasCsv" />
         <div v-if="hasCsv" class="row items-center q-gutter-xs">
           <q-btn
             flat
@@ -181,6 +213,8 @@ const store = useNametagStore();
 const {
   csvHeaders,
   csvRows,
+  primarySort,
+  secondarySort,
   hasCsv,
   hasBackground,
   backgroundImages,
@@ -226,6 +260,12 @@ const progressCurrent = ref(0);
 const progressTotal = ref(0);
 const startTime = ref(0);
 const estimatedRemainingSeconds = ref<number | null>(null);
+
+const sortOptions = computed(() => {
+  const headers = csvHeaders.value;
+  const opts = headers.map((h) => ({ label: h, value: h }));
+  return [{ label: '— None —', value: null }, ...opts];
+});
 
 const progressPercent = computed(() =>
   progressTotal.value > 0 ? progressCurrent.value / progressTotal.value : 0
@@ -343,6 +383,8 @@ function onImport(e: Event) {
         showSafeGuides: json.showSafeGuides ?? false,
         tagWidthMm: json.tagWidthMm,
         tagHeightMm: json.tagHeightMm,
+        primarySort: json.primarySort ?? null,
+        secondarySort: json.secondarySort ?? null,
       });
       $q.notify({ type: 'positive', message: 'Design imported' });
     } catch (err) {

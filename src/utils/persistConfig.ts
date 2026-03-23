@@ -26,6 +26,8 @@ export interface PersistedConfig {
   showSafeGuides: boolean;
   tagWidthMm?: number;
   tagHeightMm?: number;
+  primarySort?: string | null;
+  secondarySort?: string | null;
 }
 
 export function loadConfig(): Partial<PersistedConfig> | null {

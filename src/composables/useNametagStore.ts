@@ -27,9 +27,32 @@ function createStore() {
   const tagWidthMm = ref(saved?.tagWidthMm ?? DEFAULT_TAG_WIDTH_MM);
   const tagHeightMm = ref(saved?.tagHeightMm ?? DEFAULT_TAG_HEIGHT_MM);
   const previewRowIndex = ref(0);
+  const primarySort = ref<string | null>(saved?.primarySort ?? null);
+  const secondarySort = ref<string | null>(saved?.secondarySort ?? null);
 
   const csvHeaders = computed(() => csvData.value?.headers ?? []);
-  const csvRows = computed(() => csvData.value?.rows ?? []);
+  const sortedCsvRows = computed(() => {
+    const rows = csvData.value?.rows ?? [];
+    const headers = csvData.value?.headers ?? [];
+    if (rows.length === 0) return rows;
+    const pri = primarySort.value && headers.includes(primarySort.value) ? primarySort.value : null;
+    const sec = secondarySort.value && headers.includes(secondarySort.value) ? secondarySort.value : null;
+    if (!pri && !sec) return rows;
+    return [...rows].sort((a, b) => {
+      const cmp = (key: string): number => {
+        const va = (a[key] ?? '').toLowerCase();
+        const vb = (b[key] ?? '').toLowerCase();
+        return va.localeCompare(vb, undefined, { numeric: true });
+      };
+      if (pri) {
+        const c = cmp(pri);
+        if (c !== 0) return c;
+      }
+      if (sec) return cmp(sec);
+      return 0;
+    });
+  });
+  const csvRows = computed(() => sortedCsvRows.value);
   const hasCsv = computed(() => (csvRows.value.length ?? 0) > 0);
   const hasBackground = computed(() => backgroundImages.value.length > 0);
   const previewBackground = computed(() => {
@@ -188,6 +211,8 @@ function createStore() {
     backgroundImages.value = [];
     fields.value = [];
     selectedFieldIds.value = [];
+    primarySort.value = null;
+    secondarySort.value = null;
   }
 
   function loadDesign(config: {
@@ -198,6 +223,8 @@ function createStore() {
     showSafeGuides?: boolean;
     tagWidthMm?: number;
     tagHeightMm?: number;
+    primarySort?: string | null;
+    secondarySort?: string | null;
   }) {
     if (config.csvData != null) csvData.value = config.csvData;
     if (config.backgroundImages != null) backgroundImages.value = config.backgroundImages;
@@ -206,6 +233,8 @@ function createStore() {
     if (config.showSafeGuides != null) showSafeGuides.value = config.showSafeGuides;
     if (config.tagWidthMm != null) tagWidthMm.value = config.tagWidthMm;
     if (config.tagHeightMm != null) tagHeightMm.value = config.tagHeightMm;
+    if (config.primarySort !== undefined) primarySort.value = config.primarySort;
+    if (config.secondarySort !== undefined) secondarySort.value = config.secondarySort;
     selectedFieldIds.value = [];
     previewRowIndex.value = 0;
   }
@@ -219,6 +248,8 @@ function createStore() {
       showSafeGuides: showSafeGuides.value,
       tagWidthMm: tagWidthMm.value,
       tagHeightMm: tagHeightMm.value,
+      primarySort: primarySort.value,
+      secondarySort: secondarySort.value,
     };
   }
 
@@ -235,12 +266,24 @@ function createStore() {
         showSafeGuides: showSafeGuides.value,
         tagWidthMm: tagWidthMm.value,
         tagHeightMm: tagHeightMm.value,
+        primarySort: primarySort.value,
+        secondarySort: secondarySort.value,
       });
     }, 500);
   }
 
   watch(
-    [csvData, backgroundImages, fields, showFoldLine, showSafeGuides, tagWidthMm, tagHeightMm],
+    [
+      csvData,
+      backgroundImages,
+      fields,
+      showFoldLine,
+      showSafeGuides,
+      tagWidthMm,
+      tagHeightMm,
+      primarySort,
+      secondarySort,
+    ],
     persist,
     { deep: true }
   );
@@ -249,6 +292,8 @@ function createStore() {
     csvData,
     csvHeaders,
     csvRows,
+    primarySort,
+    secondarySort,
     hasCsv,
     backgroundImages,
     hasBackground,

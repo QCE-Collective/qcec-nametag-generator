@@ -8,21 +8,27 @@
 import { ref, watch, onMounted } from 'vue';
 import QRCode from 'qrcode';
 
-const props = defineProps<{
-  value: string;
-  widthPx: number;
-  heightPx: number;
-  csvKey: string;
-}>();
+const props = withDefaults(
+  defineProps<{
+    value: string;
+    widthPx: number;
+    heightPx: number;
+    csvKey: string;
+    qrColor?: string;
+  }>(),
+  { qrColor: '#000000' }
+);
 
 const dataUrl = ref('');
 
 function generate() {
   const size = Math.min(props.widthPx, props.heightPx);
+  const dark = (props.qrColor || '#000000').slice(0, 7);
+  const darkHex = dark.length === 7 ? `${dark}ff` : dark;
   QRCode.toDataURL(props.value || ' ', {
     width: size,
     margin: 0,
-    color: { dark: '#000000ff', light: '#00000000' },
+    color: { dark: darkHex, light: '#00000000' },
   })
     .then((url) => {
       dataUrl.value = url;
@@ -33,7 +39,7 @@ function generate() {
 }
 
 onMounted(generate);
-watch(() => [props.value, props.widthPx, props.heightPx], generate);
+watch(() => [props.value, props.widthPx, props.heightPx, props.qrColor], generate);
 </script>
 
 <style scoped>

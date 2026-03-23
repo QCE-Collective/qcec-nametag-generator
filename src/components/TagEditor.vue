@@ -17,7 +17,7 @@
         />
         <div v-else class="background-placeholder">
           <q-icon name="image" size="48px" />
-          <span>No background - upload 190×55mm image</span>
+          <span>No background - upload {{ tagWidthMm }}×{{ tagHeightMm }}mm image</span>
         </div>
 
         <!-- Guides -->
@@ -55,6 +55,7 @@
               :width-px="mmToPx(field.width)"
               :height-px="mmToPx(field.height)"
               :csv-key="field.csvKey"
+              :qr-color="field.qrColor ?? '#000000'"
             />
           </div>
           <div v-if="selectedFieldId === field.id && selectedFieldIds.length === 1" class="resize-handle" @mousedown.stop="onResizeStart($event, field)" />
@@ -69,25 +70,25 @@ import { ref, computed, onMounted, onUnmounted } from 'vue';
 import QrField from './QrField.vue';
 import AutoFitText from './AutoFitText.vue';
 import type { Field } from 'src/types/nametag';
-import {
-  TAG_WIDTH_MM,
-  TAG_HEIGHT_MM,
-  FOLD_LINE_MM,
-  SAFE_MARGIN_MM,
-} from 'src/types/nametag';
+import { SAFE_MARGIN_MM } from 'src/types/nametag';
 
-const MM_TO_PX = 3; // 1mm = 3px on canvas
+const MM_TO_PX = 6; // Match print scale (6px/mm) so background displays 1:1
 
-const props = defineProps<{
-  fields: Field[];
-  selectedFieldIds: string[];
-  selectedFieldId: string | null;
-  backgroundImage: string | null;
-  previewRow: Record<string, string>;
-  showFoldLine: boolean;
-  showSafeGuides: boolean;
-  scale?: number;
-}>();
+const props = withDefaults(
+  defineProps<{
+    fields: Field[];
+    selectedFieldIds: string[];
+    selectedFieldId: string | null;
+    backgroundImage: string | null;
+    previewRow: Record<string, string>;
+    showFoldLine: boolean;
+    showSafeGuides: boolean;
+    tagWidthMm: number;
+    tagHeightMm: number;
+    scale?: number;
+  }>(),
+  { tagWidthMm: 180, tagHeightMm: 55 }
+);
 
 const emit = defineEmits<{
   selectField: [id: string | null, addToSelection?: boolean];
@@ -105,8 +106,8 @@ const scale = computed(() => {
   const w = containerWidth.value - 2 * PREVIEW_MARGIN_PX;
   const h = containerHeight.value - 2 * PREVIEW_MARGIN_PX;
   if (w <= 0 || h <= 0) return 1;
-  const scaleW = w / canvasWidthPx;
-  const scaleH = h / canvasHeightPx;
+  const scaleW = w / canvasWidthPx.value;
+  const scaleH = h / canvasHeightPx.value;
   return Math.min(scaleW, scaleH, 4);
 });
 
@@ -131,22 +132,23 @@ onUnmounted(() => {
   window.removeEventListener('keydown', onKeyDown);
 });
 
-const canvasWidthPx = TAG_WIDTH_MM * MM_TO_PX;
-const canvasHeightPx = TAG_HEIGHT_MM * MM_TO_PX;
+const canvasWidthPx = computed(() => props.tagWidthMm * MM_TO_PX);
+const canvasHeightPx = computed(() => props.tagHeightMm * MM_TO_PX);
 
 const canvasStyle = computed(() => ({
-  width: `${canvasWidthPx}px`,
-  height: `${canvasHeightPx}px`,
+  width: `${canvasWidthPx.value}px`,
+  height: `${canvasHeightPx.value}px`,
+  transform: `scale(${scale.value})`,
+  transformOrigin: 'top left',
 }));
 
 const canvasWrapperStyle = computed(() => {
-  const w = canvasWidthPx * scale.value;
-  const h = canvasHeightPx * scale.value;
+  const w = canvasWidthPx.value * scale.value;
+  const h = canvasHeightPx.value * scale.value;
   return {
     width: `${w}px`,
     height: `${h}px`,
-    transform: `scale(${scale.value})`,
-    transformOrigin: 'top left',
+    overflow: 'hidden',
   };
 });
 
@@ -157,7 +159,7 @@ const backgroundStyle = computed(() => ({
 }));
 
 const foldLineStyle = computed(() => ({
-  left: `${FOLD_LINE_MM * MM_TO_PX}px`,
+  left: `${(props.tagWidthMm / 2) * MM_TO_PX}px`,
   width: '1px',
   height: '100%',
 }));
@@ -169,7 +171,7 @@ const safeLeftStyle = computed(() => ({
 }));
 
 const safeRightStyle = computed(() => ({
-  left: `${(TAG_WIDTH_MM - SAFE_MARGIN_MM) * MM_TO_PX}px`,
+  left: `${(props.tagWidthMm - SAFE_MARGIN_MM) * MM_TO_PX}px`,
   width: '1px',
   height: '100%',
 }));
@@ -181,7 +183,7 @@ const safeTopStyle = computed(() => ({
 }));
 
 const safeBottomStyle = computed(() => ({
-  top: `${(TAG_HEIGHT_MM - SAFE_MARGIN_MM) * MM_TO_PX}px`,
+  top: `${(props.tagHeightMm - SAFE_MARGIN_MM) * MM_TO_PX}px`,
   width: '100%',
   height: '1px',
 }));
@@ -242,8 +244,8 @@ function onFieldMouseDown(e: MouseEvent, field: Field) {
     if (!dragField) return;
     const dx = (e.clientX - dragStartX) / pxPerMm;
     const dy = (e.clientY - dragStartY) / pxPerMm;
-    const newX = Math.max(0, Math.min(TAG_WIDTH_MM - dragField.width, fieldStartX + dx));
-    const newY = Math.max(0, Math.min(TAG_HEIGHT_MM - dragField.height, fieldStartY + dy));
+    const newX = Math.max(0, Math.min(props.tagWidthMm - dragField.width, fieldStartX + dx));
+    const newY = Math.max(0, Math.min(props.tagHeightMm - dragField.height, fieldStartY + dy));
     emit('updateField', dragField.id, {
       x: snapToGrid(newX),
       y: snapToGrid(newY),
@@ -273,8 +275,8 @@ function onResizeStart(e: MouseEvent, field: Field) {
   const onMouseMove = (e: MouseEvent) => {
     const dx = (e.clientX - startX) / pxPerMm;
     const dy = (e.clientY - startY) / pxPerMm;
-    const newW = Math.max(10, Math.min(TAG_WIDTH_MM - field.x, resizeStartW + dx));
-    const newH = Math.max(10, Math.min(TAG_HEIGHT_MM - field.y, resizeStartH + dy));
+    const newW = Math.max(10, Math.min(props.tagWidthMm - field.x, resizeStartW + dx));
+    const newH = Math.max(10, Math.min(props.tagHeightMm - field.y, resizeStartH + dy));
     emit('updateField', field.id, {
       width: snapToGrid(newW),
       height: snapToGrid(newH),
@@ -316,8 +318,8 @@ function onKeyDown(e: KeyboardEvent) {
   else return;
 
   e.preventDefault();
-  const newX = Math.max(0, Math.min(TAG_WIDTH_MM - field.width, field.x + dx));
-  const newY = Math.max(0, Math.min(TAG_HEIGHT_MM - field.height, field.y + dy));
+  const newX = Math.max(0, Math.min(props.tagWidthMm - field.width, field.x + dx));
+  const newY = Math.max(0, Math.min(props.tagHeightMm - field.height, field.y + dy));
   emit('updateField', field.id, { x: snapToGrid(newX), y: snapToGrid(newY) });
 }
 </script>
@@ -327,7 +329,7 @@ function onKeyDown(e: KeyboardEvent) {
   flex: 1;
   display: flex;
   align-items: flex-start;
-  justify-content: center;
+  justify-content: flex-start;
   padding: 1rem;
   overflow: auto;
   background: #e0e0e0;

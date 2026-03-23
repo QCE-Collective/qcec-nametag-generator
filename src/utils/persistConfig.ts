@@ -24,6 +24,8 @@ export interface PersistedConfig {
   fields: Field[];
   showFoldLine: boolean;
   showSafeGuides: boolean;
+  tagWidthMm?: number;
+  tagHeightMm?: number;
 }
 
 export function loadConfig(): Partial<PersistedConfig> | null {

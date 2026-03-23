@@ -8,7 +8,7 @@
       @click="triggerUpload"
     >
       <q-tooltip>
-        Upload multiple 190×55mm images – one randomly chosen per nametag
+        Upload images sized to your tag dimensions – one randomly chosen per nametag
       </q-tooltip>
       <input
         ref="inputRef"

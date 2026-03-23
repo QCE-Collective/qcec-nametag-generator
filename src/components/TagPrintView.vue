@@ -10,6 +10,7 @@
       <div v-if="field.type === 'text'" class="field-text">
         <AutoFitText
           :text="getValue(field)"
+          @fitted="onTextFitted"
           :font-size="(field.fontSize ?? 14) * (PX_PER_MM / 3)"
           :font-family="field.fontFamily ?? 'sans-serif'"
           :font-weight="field.fontWeight ?? 400"
@@ -27,10 +28,9 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, ref, watch } from 'vue';
 import AutoFitText from './AutoFitText.vue';
 import type { Field } from 'src/types/nametag';
-import { TAG_WIDTH_MM, TAG_HEIGHT_MM } from 'src/types/nametag';
 
 /** Print scale: 1mm = PX_PER_MM pixels (2x for print quality) */
 const PX_PER_MM = 6;
@@ -40,14 +40,49 @@ const props = withDefaults(
     fields: Field[];
     backgroundImage: string | null;
     row: Record<string, string>;
+    tagWidthMm?: number;
+    tagHeightMm?: number;
     qrUrls?: Map<string, string>;
   }>(),
-  { qrUrls: () => new Map() }
+  { tagWidthMm: 180, tagHeightMm: 55, qrUrls: () => new Map() }
 );
 
+const textFieldCount = computed(
+  () => props.fields.filter((f) => f.type === 'text').length
+);
+const fittedCount = ref(0);
+let readyResolve: (() => void) | null = null;
+const readyPromise = ref(Promise.resolve());
+
+watch(
+  () => props.row,
+  () => {
+    fittedCount.value = 0;
+    readyPromise.value = new Promise<void>((r) => {
+      readyResolve = r;
+    });
+  },
+  { deep: true, immediate: true }
+);
+
+function onTextFitted() {
+  fittedCount.value += 1;
+  if (fittedCount.value >= textFieldCount.value && readyResolve) {
+    readyResolve();
+    readyResolve = null;
+  }
+}
+
+function whenReady(): Promise<void> {
+  if (textFieldCount.value === 0) return Promise.resolve();
+  return readyPromise.value;
+}
+
+defineExpose({ whenReady });
+
 const tagStyle = computed(() => ({
-  width: `${TAG_WIDTH_MM * PX_PER_MM}px`,
-  height: `${TAG_HEIGHT_MM * PX_PER_MM}px`,
+  width: `${props.tagWidthMm * PX_PER_MM}px`,
+  height: `${props.tagHeightMm * PX_PER_MM}px`,
 }));
 
 const bgStyle = computed(() => ({

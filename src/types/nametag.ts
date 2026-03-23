@@ -20,13 +20,19 @@ export interface Field {
   align?: TextAlign;
   capitalize?: boolean;
 
+  // qr only
+  qrColor?: string;
+
   csvKey: string;
 }
 
-/** Tag dimensions (mm) */
-export const TAG_WIDTH_MM = 190;
-export const TAG_HEIGHT_MM = 55;
-export const FOLD_LINE_MM = 95;
+/** Default tag dimensions (mm) - 18cm × 5.5cm unfolded */
+export const DEFAULT_TAG_WIDTH_MM = 180;
+export const DEFAULT_TAG_HEIGHT_MM = 55;
+
+/** Legacy constants (use defaults) */
+export const TAG_WIDTH_MM = DEFAULT_TAG_WIDTH_MM;
+export const TAG_HEIGHT_MM = DEFAULT_TAG_HEIGHT_MM;
 export const SAFE_MARGIN_MM = 5;
 
 /** A4 page (mm) */

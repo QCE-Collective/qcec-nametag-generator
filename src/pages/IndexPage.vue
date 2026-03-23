@@ -60,8 +60,59 @@
           :loading="isGenerating"
           @click="handleGeneratePdf"
         />
+        <q-dialog
+          :model-value="isGenerating"
+          persistent
+          no-esc-dismiss
+          no-backdrop-dismiss
+        >
+          <q-card style="min-width: 320px">
+            <q-card-section>
+              <div class="text-h6">Generating PDF</div>
+              <div class="text-body2 text-grey q-mt-xs">
+                {{ progressPhaseLabel }}
+              </div>
+              <div
+                v-if="isTabHidden && isGenerating"
+                class="text-caption text-warning q-mt-sm"
+              >
+                Keep this tab active for best performance
+              </div>
+            </q-card-section>
+            <q-card-section>
+              <q-linear-progress
+                :value="progressPercent"
+                size="12px"
+                color="primary"
+                class="q-mb-sm"
+              />
+              <div class="text-caption text-grey">
+                <template v-if="progressTotal > 0">
+                  {{ progressCurrent }} / {{ progressTotal }}
+                  {{ progressPhase === 'tags' ? 'nametags' : 'QR codes' }}
+                  <span v-if="estimatedRemainingText">
+                    · {{ estimatedRemainingText }}
+                  </span>
+                </template>
+                <template v-else>
+                  Preparing...
+                </template>
+              </div>
+            </q-card-section>
+          </q-card>
+        </q-dialog>
         <q-checkbox v-model="showFoldLine" label="Fold line" dense />
         <q-checkbox v-model="showSafeGuides" label="Safe guides" dense />
+        <q-btn flat dense icon="straighten" @click="showTagSizeModal = true">
+          <q-tooltip>Nametag size</q-tooltip>
+        </q-btn>
+        <TagSizeModal
+          v-model="showTagSizeModal"
+          :tag-width-mm="tagWidthMm"
+          :tag-height-mm="tagHeightMm"
+          @update:tag-width-mm="setTagWidthMm"
+          @update:tag-height-mm="setTagHeightMm"
+        />
       </div>
     </q-toolbar>
 
@@ -90,6 +141,8 @@
         :preview-row="previewRow"
         :show-fold-line="showFoldLine"
         :show-safe-guides="showSafeGuides"
+        :tag-width-mm="tagWidthMm"
+        :tag-height-mm="tagHeightMm"
         @select-field="(id, add) => selectField(id, add)"
         @update-field="updateField"
       />
@@ -100,19 +153,23 @@
       :fields="fields"
       :background-images="backgroundImages"
       :rows="csvRows"
+      :tag-width-mm="tagWidthMm"
+      :tag-height-mm="tagHeightMm"
       @complete="isGenerating = false"
       @error="onPdfError"
+      @progress="onPdfProgress"
     />
   </q-page>
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue';
+import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { useQuasar } from 'quasar';
 import CSVUploader from 'components/CSVUploader.vue';
 import BackgroundUploader from 'components/BackgroundUploader.vue';
 import FieldSidebar from 'components/FieldSidebar.vue';
 import TagEditor from 'components/TagEditor.vue';
+import TagSizeModal from 'components/TagSizeModal.vue';
 import PdfGenerator from 'components/PdfGenerator.vue';
 import { useNametagStore } from 'src/composables/useNametagStore';
 import { preloadFonts } from 'src/constants/fonts';
@@ -137,6 +194,10 @@ const {
   previewRowIndex,
   showFoldLine,
   showSafeGuides,
+  tagWidthMm,
+  tagHeightMm,
+  setTagWidthMm,
+  setTagHeightMm,
   setCsvData,
   nextPreviewRow,
   prevPreviewRow,
@@ -158,6 +219,43 @@ const {
 const pdfGeneratorRef = ref<InstanceType<typeof PdfGenerator> | null>(null);
 const importInputRef = ref<HTMLInputElement | null>(null);
 const isGenerating = ref(false);
+const showTagSizeModal = ref(false);
+
+const progressPhase = ref<'qr' | 'tags'>('tags');
+const progressCurrent = ref(0);
+const progressTotal = ref(0);
+const startTime = ref(0);
+const estimatedRemainingSeconds = ref<number | null>(null);
+
+const progressPercent = computed(() =>
+  progressTotal.value > 0 ? progressCurrent.value / progressTotal.value : 0
+);
+const progressPhaseLabel = computed(() =>
+  progressPhase.value === 'qr'
+    ? 'Generating QR codes...'
+    : 'Rendering nametags...'
+);
+
+function formatRemaining(sec: number): string {
+  if (sec < 60) return `~${Math.ceil(sec)}s left`;
+  const min = Math.ceil(sec / 60);
+  return `~${min} min left`;
+}
+const estimatedRemainingText = computed(() => {
+  const sec = estimatedRemainingSeconds.value;
+  return sec != null && sec > 0 ? formatRemaining(sec) : '';
+});
+
+const isTabHidden = ref(document.hidden);
+function updateTabVisibility() {
+  isTabHidden.value = document.hidden;
+}
+onMounted(() => {
+  document.addEventListener('visibilitychange', updateTabVisibility);
+});
+onUnmounted(() => {
+  document.removeEventListener('visibilitychange', updateTabVisibility);
+});
 
 watch(
   () => store.fields.value,
@@ -174,8 +272,29 @@ const canGenerate = computed(
   () => csvRows.value.length > 0 && fields.value.length > 0
 );
 
+function onPdfProgress(progress: { phase: 'qr' | 'tags'; current: number; total: number }) {
+  if (progress.phase === 'tags' && progressPhase.value !== 'tags') {
+    startTime.value = Date.now();
+  }
+  progressPhase.value = progress.phase;
+  progressCurrent.value = progress.current;
+  progressTotal.value = progress.total;
+  if (progress.current >= 3 && progress.total > progress.current && startTime.value > 0) {
+    const elapsed = (Date.now() - startTime.value) / 1000;
+    const rate = progress.current / elapsed;
+    estimatedRemainingSeconds.value = (progress.total - progress.current) / rate;
+  } else {
+    estimatedRemainingSeconds.value = null;
+  }
+}
+
 async function handleGeneratePdf() {
   if (!canGenerate.value || !pdfGeneratorRef.value) return;
+  progressCurrent.value = 0;
+  progressTotal.value = csvRows.value.length;
+  progressPhase.value = 'tags';
+  estimatedRemainingSeconds.value = null;
+  startTime.value = Date.now();
   isGenerating.value = true;
   try {
     const blob = await pdfGeneratorRef.value.generate();
@@ -222,6 +341,8 @@ function onImport(e: Event) {
         fields: json.fields ?? [],
         showFoldLine: json.showFoldLine ?? true,
         showSafeGuides: json.showSafeGuides ?? false,
+        tagWidthMm: json.tagWidthMm,
+        tagHeightMm: json.tagHeightMm,
       });
       $q.notify({ type: 'positive', message: 'Design imported' });
     } catch (err) {

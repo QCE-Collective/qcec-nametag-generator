@@ -11,6 +11,8 @@
 <script setup lang="ts">
 import { ref, computed, watch, nextTick, onMounted } from 'vue';
 
+const emit = defineEmits<{ fitted: [] }>();
+
 const props = withDefaults(
   defineProps<{
     text: string;
@@ -55,11 +57,13 @@ async function fitFontSize() {
     fittedFontSize.value = fs;
     await nextTick();
     if (el.scrollHeight <= el.clientHeight && el.scrollWidth <= el.clientWidth) {
+      emit('fitted');
       return;
     }
     fs -= 1;
   }
   fittedFontSize.value = fs;
+  emit('fitted');
 }
 
 function runFit() {

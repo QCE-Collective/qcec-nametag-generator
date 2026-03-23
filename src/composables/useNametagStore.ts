@@ -1,5 +1,6 @@
 import { ref, computed, watch } from 'vue';
 import type { Field } from 'src/types/nametag';
+import { DEFAULT_TAG_WIDTH_MM, DEFAULT_TAG_HEIGHT_MM } from 'src/types/nametag';
 import { loadConfig, saveConfig, migrateFieldFontNames } from 'src/utils/persistConfig';
 
 export interface CsvData {
@@ -23,6 +24,8 @@ function createStore() {
   const selectedFieldId = computed(() => selectedFieldIds.value[0] ?? null);
   const showFoldLine = ref(saved?.showFoldLine ?? true);
   const showSafeGuides = ref(saved?.showSafeGuides ?? false);
+  const tagWidthMm = ref(saved?.tagWidthMm ?? DEFAULT_TAG_WIDTH_MM);
+  const tagHeightMm = ref(saved?.tagHeightMm ?? DEFAULT_TAG_HEIGHT_MM);
   const previewRowIndex = ref(0);
 
   const csvHeaders = computed(() => csvData.value?.headers ?? []);
@@ -85,6 +88,7 @@ function createStore() {
       width: type === 'text' ? 80 : 25,
       height: type === 'text' ? 8 : 25,
       csvKey: firstKey,
+      ...(type === 'qr' && { qrColor: '#000000' }),
       ...(type === 'text' && {
         fontSize: 14,
         fontFamily: 'sans-serif',
@@ -171,6 +175,14 @@ function createStore() {
     sel.forEach((f) => updateField(f.id, { x: roundPos(maxRight - f.width) }));
   }
 
+  function setTagWidthMm(v: number) {
+    tagWidthMm.value = v;
+  }
+
+  function setTagHeightMm(v: number) {
+    tagHeightMm.value = v;
+  }
+
   function clearAll() {
     csvData.value = null;
     backgroundImages.value = [];
@@ -184,12 +196,16 @@ function createStore() {
     fields?: Field[];
     showFoldLine?: boolean;
     showSafeGuides?: boolean;
+    tagWidthMm?: number;
+    tagHeightMm?: number;
   }) {
     if (config.csvData != null) csvData.value = config.csvData;
     if (config.backgroundImages != null) backgroundImages.value = config.backgroundImages;
     if (config.fields != null) fields.value = migrateFieldFontNames(config.fields);
     if (config.showFoldLine != null) showFoldLine.value = config.showFoldLine;
     if (config.showSafeGuides != null) showSafeGuides.value = config.showSafeGuides;
+    if (config.tagWidthMm != null) tagWidthMm.value = config.tagWidthMm;
+    if (config.tagHeightMm != null) tagHeightMm.value = config.tagHeightMm;
     selectedFieldIds.value = [];
     previewRowIndex.value = 0;
   }
@@ -201,6 +217,8 @@ function createStore() {
       fields: fields.value,
       showFoldLine: showFoldLine.value,
       showSafeGuides: showSafeGuides.value,
+      tagWidthMm: tagWidthMm.value,
+      tagHeightMm: tagHeightMm.value,
     };
   }
 
@@ -215,12 +233,14 @@ function createStore() {
         fields: fields.value,
         showFoldLine: showFoldLine.value,
         showSafeGuides: showSafeGuides.value,
+        tagWidthMm: tagWidthMm.value,
+        tagHeightMm: tagHeightMm.value,
       });
     }, 500);
   }
 
   watch(
-    [csvData, backgroundImages, fields, showFoldLine, showSafeGuides],
+    [csvData, backgroundImages, fields, showFoldLine, showSafeGuides, tagWidthMm, tagHeightMm],
     persist,
     { deep: true }
   );
@@ -242,6 +262,10 @@ function createStore() {
     previewRowIndex,
     showFoldLine,
     showSafeGuides,
+    tagWidthMm,
+    tagHeightMm,
+    setTagWidthMm,
+    setTagHeightMm,
     setCsvData,
     addBackgroundImages,
     removeBackgroundImage,

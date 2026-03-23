@@ -1,12 +1,16 @@
 <template>
   <div class="pdf-generator">
     <div ref="renderContainerRef" class="render-container">
-      <TagPrintView
-        v-if="currentRow !== null"
+      <PagePrintView
+        v-if="currentPageRows.length > 0"
+        ref="pagePrintRef"
         :fields="fields"
-        :background-image="currentBackground"
-        :row="currentRow"
+        :rows="currentPageRows"
+        :background-images="backgroundImages"
+        :background-indices="currentBackgroundIndices"
         :qr-urls="qrMap"
+        :tag-width-mm="props.tagWidthMm"
+        :tag-height-mm="props.tagHeightMm"
       />
     </div>
   </div>
@@ -14,45 +18,55 @@
 
 <script setup lang="ts">
 import { ref, nextTick } from 'vue';
-import TagPrintView from './TagPrintView.vue';
+import PagePrintView from './PagePrintView.vue';
 import { generatePdf, pregenerateQrCodes } from 'src/utils/pdfGenerator';
 import { preloadFonts } from 'src/constants/fonts';
+import { startKeepAliveAudio, stopKeepAliveAudio } from 'src/utils/keepAliveAudio';
 import type { Field } from 'src/types/nametag';
 
-const props = defineProps<{
-  fields: Field[];
-  backgroundImages: string[];
-  rows: Record<string, string>[];
-}>();
+const props = withDefaults(
+  defineProps<{
+    fields: Field[];
+    backgroundImages: string[];
+    rows: Record<string, string>[];
+    tagWidthMm?: number;
+    tagHeightMm?: number;
+  }>(),
+  { tagWidthMm: 180, tagHeightMm: 55 }
+);
 
 const emit = defineEmits<{
   complete: [];
   error: [err: unknown];
+  progress: [progress: import('src/utils/pdfGenerator').PdfProgress];
 }>();
 
 const renderContainerRef = ref<HTMLElement | null>(null);
-const currentRow = ref<Record<string, string> | null>(null);
-const currentBackground = ref<string | null>(null);
+const pagePrintRef = ref<InstanceType<typeof PagePrintView> | null>(null);
+const currentPageRows = ref<Record<string, string>[]>([]);
+const currentBackgroundIndices = ref<number[]>([]);
 const qrMap = ref<Map<string, string>>(new Map());
 
 async function generate(): Promise<Blob | null> {
   if (!renderContainerRef.value || props.rows.length === 0) return null;
 
-  const imgs = props.backgroundImages;
+  startKeepAliveAudio();
 
-  const renderAndGetElement = async (
-    row: Record<string, string>,
-    _rowIndex: number
+  const renderAndGetPage = async (
+    pageRows: Record<string, string>[],
+    backgroundIndices: number[]
   ): Promise<HTMLElement> => {
-    const bg = imgs.length > 0 ? (imgs[Math.floor(Math.random() * imgs.length)] ?? null) : null;
-    currentRow.value = row;
-    currentBackground.value = bg;
+    currentPageRows.value = pageRows;
+    currentBackgroundIndices.value = backgroundIndices;
     await nextTick();
-    await new Promise((r) => setTimeout(r, 350)); // Allow paint + AutoFitText fitFontSize to finish
+    await Promise.race([
+      pagePrintRef.value?.whenReady() ?? Promise.resolve(),
+      new Promise((r) => setTimeout(r, 80)),
+    ]);
     const el = renderContainerRef.value?.querySelector(
-      '[data-tag-print]'
+      '[data-page-print]'
     ) as HTMLElement;
-    if (!el) throw new Error('Tag element not found');
+    if (!el) throw new Error('Page element not found');
     return el;
   };
 
@@ -61,26 +75,35 @@ async function generate(): Promise<Blob | null> {
       .filter((f) => f.type === 'text' && f.fontFamily)
       .map((f) => f.fontFamily!);
     preloadFonts(fontFamilies);
-    await new Promise((r) => setTimeout(r, 300)); // Allow fonts to load
+    await new Promise((r) => setTimeout(r, 150)); // Fonts - reduced for speed
 
-    qrMap.value = await pregenerateQrCodes(props.fields, props.rows);
+    qrMap.value = await pregenerateQrCodes(
+      props.fields,
+      props.rows,
+      (p) => emit('progress', p)
+    );
     await nextTick();
 
     const blob = await generatePdf(
       props.fields,
       props.backgroundImages,
       props.rows,
-      renderAndGetElement
+      renderAndGetPage,
+      (p) => emit('progress', p),
+      props.tagWidthMm,
+      props.tagHeightMm
     );
     emit('complete');
-    currentRow.value = null;
-    currentBackground.value = null;
+    currentPageRows.value = [];
+    currentBackgroundIndices.value = [];
     return blob;
   } catch (err) {
     emit('error', err);
-    currentRow.value = null;
-    currentBackground.value = null;
+    currentPageRows.value = [];
+    currentBackgroundIndices.value = [];
     return null;
+  } finally {
+    stopKeepAliveAudio();
   }
 }
 
@@ -93,7 +116,7 @@ defineExpose({ generate });
   left: -9999px;
   top: 0;
   width: 1200px;
-  height: 400px;
+  height: 1800px;
   overflow: hidden;
   pointer-events: none;
 }

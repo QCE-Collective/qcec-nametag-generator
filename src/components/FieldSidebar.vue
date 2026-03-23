@@ -175,6 +175,21 @@
           />
         </template>
 
+        <template v-if="selectedField.type === 'qr'">
+          <div class="row items-center q-gutter-sm q-mb-sm">
+            <span class="text-body2">QR color</span>
+            <q-btn flat dense :style="{ background: (selectedField!.qrColor || '#000000') }" class="qr-color-swatch">
+              <q-popup-proxy cover transition-show="scale" transition-hide="scale">
+                <q-color
+                  :model-value="(selectedField!.qrColor || '#000000') as string"
+                  no-header
+                  @update:model-value="(v: string | null) => selectedField && v != null && updateField(selectedField.id, { qrColor: v })"
+                />
+              </q-popup-proxy>
+            </q-btn>
+          </div>
+        </template>
+
         <q-btn flat icon="content_copy" label="Duplicate" size="sm" @click="selectedField && onDuplicateField(selectedField.id)" />
       </div>
     </div>
@@ -276,5 +291,12 @@ function onDuplicateField(id: string) {
 .selected-field-panel {
   border-top: 1px solid rgba(0, 0, 0, 0.12);
   padding-top: 1rem;
+}
+
+.qr-color-swatch {
+  min-width: 36px;
+  min-height: 36px;
+  border: 1px solid rgba(0, 0, 0, 0.2);
+  border-radius: 4px;
 }
 </style>

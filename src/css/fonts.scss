@@ -1,0 +1,162 @@
+/* Local fonts - display names (not actual font names)
+ * Font files in public/fonts/
+ * Bold Title = Helvetica Now Display, Display Title = Bebas Neue
+ */
+
+/* Bold Title (Helvetica Now Display) - Hairline 100 */
+@font-face {
+  font-family: 'Bold Title';
+  src: url('/fonts/HelveticaNowDisplay-Hairline.ttf') format('truetype');
+  font-weight: 100;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: 'Bold Title';
+  src: url('/fonts/HelveticaNowDisplay-HairlineI.ttf') format('truetype');
+  font-weight: 100;
+  font-style: italic;
+}
+
+/* Thin - 100 */
+@font-face {
+  font-family: 'Bold Title';
+  src: url('/fonts/HelveticaNowDisplay-Thin.ttf') format('truetype');
+  font-weight: 100;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: 'Bold Title';
+  src: url('/fonts/HelveticaNowDisplay-ThinIta.ttf') format('truetype');
+  font-weight: 100;
+  font-style: italic;
+}
+
+/* Extra Light - 200 */
+@font-face {
+  font-family: 'Bold Title';
+  src: url('/fonts/HelveticaNowDisplay-ExtLt.ttf') format('truetype');
+  font-weight: 200;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: 'Bold Title';
+  src: url('/fonts/HelveticaNowDisplay-ExtLtIta.ttf') format('truetype');
+  font-weight: 200;
+  font-style: italic;
+}
+
+/* Light - 300 */
+@font-face {
+  font-family: 'Bold Title';
+  src: url('/fonts/HelveticaNowDisplay-Light.ttf') format('truetype');
+  font-weight: 300;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: 'Bold Title';
+  src: url('/fonts/HelveticaNowDisplay-LightIta.ttf') format('truetype');
+  font-weight: 300;
+  font-style: italic;
+}
+
+/* Regular - 400 */
+@font-face {
+  font-family: 'Bold Title';
+  src: url('/fonts/HelveticaNowDisplay-Regular.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: 'Bold Title';
+  src: url('/fonts/HelveticaNowDisplay-RegIta.ttf') format('truetype');
+  font-weight: 400;
+  font-style: italic;
+}
+
+/* Medium - 500 */
+@font-face {
+  font-family: 'Bold Title';
+  src: url('/fonts/HelveticaNowDisplay-Medium.ttf') format('truetype');
+  font-weight: 500;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: 'Bold Title';
+  src: url('/fonts/HelveticaNowDisplay-MedIta.ttf') format('truetype');
+  font-weight: 500;
+  font-style: italic;
+}
+
+/* Bold - 700 */
+@font-face {
+  font-family: 'Bold Title';
+  src: url('/fonts/HelveticaNowDisplay-Bold.ttf') format('truetype');
+  font-weight: 700;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: 'Bold Title';
+  src: url('/fonts/HelveticaNowDisplay-BoldIta.ttf') format('truetype');
+  font-weight: 700;
+  font-style: italic;
+}
+
+/* Extra Bold - 800 */
+@font-face {
+  font-family: 'Bold Title';
+  src: url('/fonts/HelveticaNowDisplay-ExtraBold.ttf') format('truetype');
+  font-weight: 800;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: 'Bold Title';
+  src: url('/fonts/HelveticaNowDisplay-ExtBdIta.ttf') format('truetype');
+  font-weight: 800;
+  font-style: italic;
+}
+
+/* Black - 900 */
+@font-face {
+  font-family: 'Bold Title';
+  src: url('/fonts/HelveticaNowDisplay-Black.ttf') format('truetype');
+  font-weight: 900;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: 'Bold Title';
+  src: url('/fonts/HelveticaNowDisplay-BlackIta.ttf') format('truetype');
+  font-weight: 900;
+  font-style: italic;
+}
+
+/* Extra Black - 950 */
+@font-face {
+  font-family: 'Bold Title';
+  src: url('/fonts/HelveticaNowDisplay-ExtBlk.ttf') format('truetype');
+  font-weight: 950;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: 'Bold Title';
+  src: url('/fonts/HelveticaNowDisplay-ExtBlkIta.ttf') format('truetype');
+  font-weight: 950;
+  font-style: italic;
+}
+
+/* Display Title (Bebas Neue) - local from public/fonts/ */
+@font-face {
+  font-family: 'Display Title';
+  src: url('/fonts/BebasNeue-Regular.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+}

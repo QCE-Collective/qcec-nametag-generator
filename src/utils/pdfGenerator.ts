@@ -10,6 +10,11 @@ import {
   A4_WIDTH_MM,
   A4_HEIGHT_MM,
 } from 'src/types/nametag';
+import {
+  type BackgroundMode,
+  getBackgroundIndexForRow,
+  getRowCacheKey,
+} from 'src/utils/backgroundSelection';
 
 const PX_PER_MM = 6;
 
@@ -56,10 +61,6 @@ export async function pregenerateQrCodes(
   return qrMap;
 }
 
-function getRowCacheKey(fields: Field[], row: Record<string, string>): string {
-  return fields.map((f) => row[f.csvKey] ?? '').join('\n');
-}
-
 export async function generatePdf(
   fields: Field[],
   backgroundImages: string[],
@@ -71,7 +72,10 @@ export async function generatePdf(
   onProgress?: (progress: PdfProgress) => void,
   tagWidthMm = 180,
   tagHeightMm = 55,
-  showFoldLine = false
+  showFoldLine = false,
+  backgroundMode: BackgroundMode = 'random',
+  backgroundCsvColumn: string | null = null,
+  backgroundContainsTexts: string[] = []
 ): Promise<Blob> {
   const pageContentHeightMm =
     TAGS_PER_PAGE * tagHeightMm + (TAGS_PER_PAGE - 1) * VERTICAL_SPACING_MM;
@@ -85,13 +89,15 @@ export async function generatePdf(
   const topMargin = TOP_MARGIN_MM;
   const total = rows.length;
 
-  const getBackgroundIndex = (row: Record<string, string>) => {
-    if (backgroundImages.length === 0) return 0;
-    const key = getRowCacheKey(fields, row);
-    let h = 0;
-    for (let i = 0; i < key.length; i++) h = ((h << 5) - h + key.charCodeAt(i)) | 0;
-    return Math.abs(h) % backgroundImages.length;
-  };
+  const getBackgroundIndex = (row: Record<string, string>) =>
+    getBackgroundIndexForRow(
+      fields,
+      row,
+      backgroundImages.length,
+      backgroundMode,
+      backgroundCsvColumn,
+      backgroundContainsTexts
+    );
 
   const pageCache = new Map<string, string>();
 
@@ -114,7 +120,7 @@ export async function generatePdf(
       .map((r) => r ?? {});
 
     const cacheKey = pageRows
-      .map((r, i) => getRowCacheKey(fields, r) + `\nbg:${getBackgroundIndex(r)}`)
+      .map((r) => getRowCacheKey(fields, r) + `\nbg:${getBackgroundIndex(r)}`)
       .join('\n---\n');
 
     let imgData: string;

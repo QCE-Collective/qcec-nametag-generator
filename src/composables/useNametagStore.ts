@@ -2,6 +2,10 @@ import { ref, computed, watch } from 'vue';
 import type { Field } from 'src/types/nametag';
 import { DEFAULT_TAG_WIDTH_MM, DEFAULT_TAG_HEIGHT_MM } from 'src/types/nametag';
 import { loadConfig, saveConfig, migrateFieldFontNames } from 'src/utils/persistConfig';
+import {
+  type BackgroundMode,
+  getBackgroundIndexForRow,
+} from 'src/utils/backgroundSelection';
 
 export interface CsvData {
   headers: string[];
@@ -19,6 +23,9 @@ function createStore() {
 
   const csvData = ref<CsvData | null>(saved?.csvData ?? null);
   const backgroundImages = ref<string[]>(saved?.backgroundImages ?? []);
+  const backgroundContainsTexts = ref<string[]>(
+    Array.from({ length: saved?.backgroundImages?.length ?? 0 }, (_, i) => saved?.backgroundContainsTexts?.[i] ?? '')
+  );
   const fields = ref<Field[]>(saved?.fields ?? []);
   const selectedFieldIds = ref<string[]>([]);
   const selectedFieldId = computed(() => selectedFieldIds.value[0] ?? null);
@@ -29,6 +36,8 @@ function createStore() {
   const previewRowIndex = ref(0);
   const primarySort = ref<string | null>(saved?.primarySort ?? null);
   const secondarySort = ref<string | null>(saved?.secondarySort ?? null);
+  const backgroundMode = ref<BackgroundMode>(saved?.backgroundMode ?? 'random');
+  const backgroundCsvColumn = ref<string | null>(saved?.backgroundCsvColumn ?? null);
 
   const csvHeaders = computed(() => csvData.value?.headers ?? []);
   const sortedCsvRows = computed(() => {
@@ -57,7 +66,19 @@ function createStore() {
   const hasBackground = computed(() => backgroundImages.value.length > 0);
   const previewBackground = computed(() => {
     const imgs = backgroundImages.value;
-    return imgs.length > 0 ? (imgs[previewRowIndex.value % imgs.length] ?? null) : null;
+    if (imgs.length === 0) return null;
+    const rows = csvRows.value;
+    const idx = Math.max(0, Math.min(previewRowIndex.value, Math.max(0, rows.length - 1)));
+    const row = rows[idx] ?? {};
+    const i = getBackgroundIndexForRow(
+      fields.value,
+      row,
+      imgs.length,
+      backgroundMode.value,
+      backgroundCsvColumn.value,
+      backgroundContainsTexts.value
+    );
+    return imgs[i] ?? null;
   });
   const selectedField = computed(
     () => fields.value.find((f) => f.id === selectedFieldId.value) ?? null
@@ -91,14 +112,26 @@ function createStore() {
 
   function addBackgroundImages(urls: string[]) {
     backgroundImages.value = [...backgroundImages.value, ...urls];
+    backgroundContainsTexts.value = [...backgroundContainsTexts.value, ...urls.map(() => '')];
   }
 
   function removeBackgroundImage(index: number) {
     backgroundImages.value = backgroundImages.value.filter((_, i) => i !== index);
+    backgroundContainsTexts.value = backgroundContainsTexts.value.filter((_, i) => i !== index);
   }
 
   function clearBackgroundImages() {
     backgroundImages.value = [];
+    backgroundContainsTexts.value = [];
+  }
+
+  function setBackgroundMatchText(index: number, text: string) {
+    const n = backgroundImages.value.length;
+    if (index < 0 || index >= n) return;
+    const next = [...backgroundContainsTexts.value];
+    while (next.length < n) next.push('');
+    next[index] = text;
+    backgroundContainsTexts.value = next;
   }
 
   function addField(type: 'text' | 'qr' | 'circle'): Field {
@@ -220,6 +253,9 @@ function createStore() {
     selectedFieldIds.value = [];
     primarySort.value = null;
     secondarySort.value = null;
+    backgroundMode.value = 'random';
+    backgroundCsvColumn.value = null;
+    backgroundContainsTexts.value = [];
   }
 
   function loadDesign(config: {
@@ -232,9 +268,18 @@ function createStore() {
     tagHeightMm?: number;
     primarySort?: string | null;
     secondarySort?: string | null;
+    backgroundMode?: BackgroundMode;
+    backgroundCsvColumn?: string | null;
+    backgroundContainsTexts?: string[];
   }) {
     if (config.csvData != null) csvData.value = config.csvData;
-    if (config.backgroundImages != null) backgroundImages.value = config.backgroundImages;
+    if (config.backgroundImages != null) {
+      backgroundImages.value = config.backgroundImages;
+      backgroundContainsTexts.value = Array.from(
+        { length: config.backgroundImages.length },
+        (_, i) => config.backgroundContainsTexts?.[i] ?? ''
+      );
+    }
     if (config.fields != null) fields.value = migrateFieldFontNames(config.fields);
     if (config.showFoldLine != null) showFoldLine.value = config.showFoldLine;
     if (config.showSafeGuides != null) showSafeGuides.value = config.showSafeGuides;
@@ -242,6 +287,8 @@ function createStore() {
     if (config.tagHeightMm != null) tagHeightMm.value = config.tagHeightMm;
     if (config.primarySort !== undefined) primarySort.value = config.primarySort;
     if (config.secondarySort !== undefined) secondarySort.value = config.secondarySort;
+    backgroundMode.value = config.backgroundMode ?? 'random';
+    backgroundCsvColumn.value = config.backgroundCsvColumn ?? null;
     selectedFieldIds.value = [];
     previewRowIndex.value = 0;
   }
@@ -257,6 +304,9 @@ function createStore() {
       tagHeightMm: tagHeightMm.value,
       primarySort: primarySort.value,
       secondarySort: secondarySort.value,
+      backgroundMode: backgroundMode.value,
+      backgroundCsvColumn: backgroundCsvColumn.value,
+      backgroundContainsTexts: backgroundContainsTexts.value,
     };
   }
 
@@ -275,9 +325,26 @@ function createStore() {
         tagHeightMm: tagHeightMm.value,
         primarySort: primarySort.value,
         secondarySort: secondarySort.value,
+        backgroundMode: backgroundMode.value,
+        backgroundCsvColumn: backgroundCsvColumn.value,
+        backgroundContainsTexts: backgroundContainsTexts.value,
       });
     }, 500);
   }
+
+  watch(
+    [csvHeaders, backgroundMode],
+    () => {
+      const headers = csvHeaders.value;
+      if (backgroundMode.value === 'csv' && headers.length > 0) {
+        const col = backgroundCsvColumn.value;
+        if (col == null || !headers.includes(col)) {
+          backgroundCsvColumn.value = headers[0] ?? null;
+        }
+      }
+    },
+    { immediate: true }
+  );
 
   watch(
     [
@@ -290,6 +357,9 @@ function createStore() {
       tagHeightMm,
       primarySort,
       secondarySort,
+      backgroundMode,
+      backgroundCsvColumn,
+      backgroundContainsTexts,
     ],
     persist,
     { deep: true }
@@ -301,6 +371,9 @@ function createStore() {
     csvRows,
     primarySort,
     secondarySort,
+    backgroundMode,
+    backgroundCsvColumn,
+    backgroundContainsTexts,
     hasCsv,
     backgroundImages,
     hasBackground,
@@ -322,6 +395,7 @@ function createStore() {
     addBackgroundImages,
     removeBackgroundImage,
     clearBackgroundImages,
+    setBackgroundMatchText,
     setPreviewRowIndex,
     nextPreviewRow,
     prevPreviewRow,

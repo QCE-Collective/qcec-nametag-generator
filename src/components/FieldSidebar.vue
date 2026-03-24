@@ -1,12 +1,43 @@
 <template>
   <div class="field-sidebar">
     <div class="q-pa-md">
-      <div class="text-h6 q-mb-md">Fields</div>
-
-      <div class="q-gutter-sm q-mb-md">
-        <q-btn color="primary" icon="text_fields" label="Add Text" size="sm" @click="onAddField('text')" />
-        <q-btn color="primary" icon="qr_code_2" label="Add QR" size="sm" @click="onAddField('qr')" />
-        <q-btn color="primary" icon="circle" label="Add Circle" size="sm" @click="onAddField('circle')" />
+      <div class="q-mb-md">
+        <q-btn-dropdown
+          class="full-width"
+          color="primary"
+          label="Add field"
+          icon="add"
+          size="md"
+          unelevated
+          fit
+        >
+          <q-list>
+            <q-item clickable v-close-popup @click="onAddField('text')">
+              <q-item-section avatar>
+                <q-icon name="text_fields" />
+              </q-item-section>
+              <q-item-section>
+                <q-item-label>Text</q-item-label>
+              </q-item-section>
+            </q-item>
+            <q-item clickable v-close-popup @click="onAddField('qr')">
+              <q-item-section avatar>
+                <q-icon name="qr_code_2" />
+              </q-item-section>
+              <q-item-section>
+                <q-item-label>QR code</q-item-label>
+              </q-item-section>
+            </q-item>
+            <q-item clickable v-close-popup @click="onAddField('circle')">
+              <q-item-section avatar>
+                <q-icon name="circle" />
+              </q-item-section>
+              <q-item-section>
+                <q-item-label>Circle</q-item-label>
+              </q-item-section>
+            </q-item>
+          </q-list>
+        </q-btn-dropdown>
       </div>
 
       <q-list v-if="fields.length > 0" bordered separator class="rounded-borders">
@@ -407,8 +438,13 @@ function onDuplicateField(id: string) {
 
 <style scoped>
 .field-sidebar {
+  flex-shrink: 0;
+  align-self: stretch;
   min-width: 260px;
   max-width: 280px;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
   border-right: 1px solid rgba(0, 0, 0, 0.12);
   background: #fafafa;
 }

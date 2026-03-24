@@ -1,89 +1,51 @@
 <template>
-  <q-page class="builder-page">
+  <q-page
+    class="builder-page"
+    :style-fn="builderPageStyleFn"
+  >
     <q-toolbar class="bg-grey-3 q-pa-md">
       <div class="row q-gutter-sm items-center full-width">
         <CSVUploader
           :csv-rows="csvRows"
           :on-csv-load="setCsvData"
         />
-        <BackgroundUploader
-          :background-count="backgroundImages.length"
-          :on-backgrounds-add="addBackgroundImages"
-          :on-backgrounds-clear="clearBackgroundImages"
-        />
-        <q-btn flat dense icon="upload_file" @click="triggerImport">
-          <q-tooltip>Import design</q-tooltip>
-          <input
-            ref="importInputRef"
-            type="file"
-            accept=".json"
-            class="hidden"
-            @change="onImport"
-          />
+        <q-btn
+          color="primary"
+          icon="image"
+          size="md"
+          :label="backgroundImages.length ? `Backgrounds (${backgroundImages.length})` : 'Backgrounds'"
+          @click="showBackgroundModal = true"
+        >
+          <q-tooltip>Upload, remove, and configure backgrounds</q-tooltip>
         </q-btn>
-        <q-btn flat dense icon="download" @click="handleExport">
-          <q-tooltip>Export design</q-tooltip>
-        </q-btn>
-        <q-btn flat dense icon="restart_alt" @click="handleReset">
-          <q-tooltip>Reset all</q-tooltip>
-        </q-btn>
-        <q-separator vertical />
-        <div v-if="hasCsv" class="row items-center q-gutter-sm">
-          <q-select
-            v-model="primarySort"
-            :options="sortOptions"
-            label="Primary sort"
-            dense
-            outlined
-            emit-value
-            map-options
-            options-dense
-            class="sort-select"
-            style="min-width: 140px"
-          >
-            <template #prepend>
-              <q-icon name="sort" size="xs" />
-            </template>
-          </q-select>
-          <q-select
-            v-model="secondarySort"
-            :options="sortOptions"
-            label="Secondary sort"
-            dense
-            outlined
-            emit-value
-            map-options
-            options-dense
-            clearable
-            class="sort-select"
-            style="min-width: 140px"
-          />
-        </div>
-        <q-separator vertical v-if="hasCsv" />
-        <div v-if="hasCsv" class="row items-center q-gutter-xs">
-          <q-btn
-            flat
-            dense
-            round
-            icon="chevron_left"
-            :disable="previewRowIndex <= 0"
-            @click="prevPreviewRow"
-          >
-            <q-tooltip>Previous</q-tooltip>
-          </q-btn>
-          <span class="text-caption">Preview: {{ previewRowIndex + 1 }} / {{ csvRows.length }}</span>
-          <q-btn
-            flat
-            dense
-            round
-            icon="chevron_right"
-            :disable="previewRowIndex >= csvRows.length - 1"
-            @click="nextPreviewRow"
-          >
-            <q-tooltip>Next</q-tooltip>
-          </q-btn>
-        </div>
-        <q-separator vertical v-if="hasCsv" />
+        <BackgroundModal v-model="showBackgroundModal" />
+        <template v-if="hasCsv">
+          <q-separator vertical />
+          <div class="row items-center q-gutter-xs">
+            <q-btn
+              flat
+              dense
+              round
+              icon="chevron_left"
+              :disable="previewRowIndex <= 0"
+              @click="prevPreviewRow"
+            >
+              <q-tooltip>Previous row</q-tooltip>
+            </q-btn>
+            <span class="text-caption">Preview: {{ previewRowIndex + 1 }} / {{ csvRows.length }}</span>
+            <q-btn
+              flat
+              dense
+              round
+              icon="chevron_right"
+              :disable="previewRowIndex >= csvRows.length - 1"
+              @click="nextPreviewRow"
+            >
+              <q-tooltip>Next row</q-tooltip>
+            </q-btn>
+          </div>
+        </template>
+        <q-space />
         <q-btn
           color="primary"
           icon="picture_as_pdf"
@@ -92,61 +54,151 @@
           :loading="isGenerating"
           @click="handleGeneratePdf"
         />
-        <q-dialog
-          :model-value="isGenerating"
-          persistent
-          no-esc-dismiss
-          no-backdrop-dismiss
+        <q-btn
+          flat
+          dense
+          round
+          icon="settings"
+          @click="showConfigModal = true"
         >
-          <q-card style="min-width: 320px">
-            <q-card-section>
-              <div class="text-h6">Generating PDF</div>
-              <div class="text-body2 text-grey q-mt-xs">
-                {{ progressPhaseLabel }}
-              </div>
-              <div
-                v-if="isTabHidden && isGenerating"
-                class="text-caption text-warning q-mt-sm"
-              >
-                Keep this tab active for best performance
-              </div>
-            </q-card-section>
-            <q-card-section>
-              <q-linear-progress
-                :value="progressPercent"
-                size="12px"
-                color="primary"
-                class="q-mb-sm"
-              />
-              <div class="text-caption text-grey">
-                <template v-if="progressTotal > 0">
-                  {{ progressCurrent }} / {{ progressTotal }}
-                  {{ progressPhase === 'tags' ? 'nametags' : 'QR codes' }}
-                  <span v-if="estimatedRemainingText">
-                    · {{ estimatedRemainingText }}
-                  </span>
-                </template>
-                <template v-else>
-                  Preparing...
-                </template>
-              </div>
-            </q-card-section>
-          </q-card>
-        </q-dialog>
-        <q-checkbox v-model="showFoldLine" label="Fold line" dense />
-        <q-checkbox v-model="showSafeGuides" label="Safe guides" dense />
-        <q-btn flat dense icon="straighten" @click="showTagSizeModal = true">
-          <q-tooltip>Nametag size</q-tooltip>
+          <q-tooltip>Settings</q-tooltip>
         </q-btn>
-        <TagSizeModal
-          v-model="showTagSizeModal"
-          :tag-width-mm="tagWidthMm"
-          :tag-height-mm="tagHeightMm"
-          @update:tag-width-mm="setTagWidthMm"
-          @update:tag-height-mm="setTagHeightMm"
-        />
       </div>
     </q-toolbar>
+
+    <q-dialog
+      :model-value="isGenerating"
+      persistent
+      no-esc-dismiss
+      no-backdrop-dismiss
+    >
+      <q-card style="min-width: 320px">
+        <q-card-section>
+          <div class="text-h6">Generating PDF</div>
+          <div class="text-body2 text-grey q-mt-xs">
+            {{ progressPhaseLabel }}
+          </div>
+          <div
+            v-if="isTabHidden && isGenerating"
+            class="text-caption text-warning q-mt-sm"
+          >
+            Keep this tab active for best performance
+          </div>
+        </q-card-section>
+        <q-card-section>
+          <q-linear-progress
+            :value="progressPercent"
+            size="12px"
+            color="primary"
+            class="q-mb-sm"
+          />
+          <div class="text-caption text-grey">
+            <template v-if="progressTotal > 0">
+              {{ progressCurrent }} / {{ progressTotal }}
+              {{ progressPhase === 'tags' ? 'nametags' : 'QR codes' }}
+              <span v-if="estimatedRemainingText">
+                · {{ estimatedRemainingText }}
+              </span>
+            </template>
+            <template v-else>
+              Preparing...
+            </template>
+          </div>
+        </q-card-section>
+      </q-card>
+    </q-dialog>
+
+    <q-dialog v-model="showConfigModal">
+      <q-card class="config-modal-card">
+        <q-card-section class="row items-center q-pb-sm">
+          <div class="text-h6">Settings</div>
+          <q-space />
+          <q-btn flat round dense icon="close" v-close-popup />
+        </q-card-section>
+
+        <q-card-section class="q-pt-none scroll config-modal-body">
+          <div class="text-subtitle2 text-grey-8 q-mb-sm">Design</div>
+          <div class="row q-gutter-sm q-mb-md">
+            <q-btn outline color="primary" icon="upload_file" label="Import" @click="triggerImport" />
+            <q-btn outline color="primary" icon="download" label="Export" @click="handleExport" />
+            <q-btn outline color="negative" icon="restart_alt" label="Reset all" @click="handleReset" />
+          </div>
+          <input
+            ref="importInputRef"
+            type="file"
+            accept=".json"
+            class="hidden"
+            @change="onImport"
+          />
+
+          <template v-if="hasCsv">
+            <q-separator class="q-mb-md" />
+            <div class="text-subtitle2 text-grey-8 q-mb-sm">CSV sort</div>
+            <div class="row q-col-gutter-sm q-mb-md">
+              <div class="col-12 col-sm-6">
+                <q-select
+                  v-model="primarySort"
+                  :options="sortOptions"
+                  label="Primary sort"
+                  dense
+                  outlined
+                  emit-value
+                  map-options
+                  options-dense
+                  class="full-width"
+                >
+                  <template #prepend>
+                    <q-icon name="sort" size="xs" />
+                  </template>
+                </q-select>
+              </div>
+              <div class="col-12 col-sm-6">
+                <q-select
+                  v-model="secondarySort"
+                  :options="sortOptions"
+                  label="Secondary sort"
+                  dense
+                  outlined
+                  emit-value
+                  map-options
+                  options-dense
+                  clearable
+                  class="full-width"
+                />
+              </div>
+            </div>
+          </template>
+
+          <q-separator class="q-mb-md" />
+          <div class="text-subtitle2 text-grey-8 q-mb-sm">Layout and PDF</div>
+          <div class="column q-gutter-sm">
+            <q-checkbox v-model="showFoldLine" label="Fold line on PDF" dense />
+            <q-checkbox v-model="showSafeGuides" label="Safe guides in editor" dense />
+            <q-btn
+              outline
+              color="primary"
+              icon="straighten"
+              label="Nametag size…"
+              align="left"
+              class="full-width"
+              @click="showTagSizeModal = true"
+            />
+          </div>
+        </q-card-section>
+
+        <q-card-actions align="right">
+          <q-btn flat label="Done" color="primary" v-close-popup />
+        </q-card-actions>
+      </q-card>
+    </q-dialog>
+
+    <TagSizeModal
+      v-model="showTagSizeModal"
+      :tag-width-mm="tagWidthMm"
+      :tag-height-mm="tagHeightMm"
+      @update:tag-width-mm="setTagWidthMm"
+      @update:tag-height-mm="setTagHeightMm"
+    />
 
     <div class="builder-content">
       <FieldSidebar
@@ -188,6 +240,9 @@
       :tag-width-mm="tagWidthMm"
       :tag-height-mm="tagHeightMm"
       :show-fold-line="showFoldLine"
+      :background-mode="backgroundMode"
+      :background-csv-column="backgroundCsvColumn"
+      :background-contains-texts="backgroundContainsTexts"
       @complete="isGenerating = false"
       @error="onPdfError"
       @progress="onPdfProgress"
@@ -196,28 +251,42 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue';
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue';
 import { useQuasar } from 'quasar';
 import CSVUploader from 'components/CSVUploader.vue';
-import BackgroundUploader from 'components/BackgroundUploader.vue';
+import BackgroundModal from 'components/BackgroundModal.vue';
 import FieldSidebar from 'components/FieldSidebar.vue';
 import TagEditor from 'components/TagEditor.vue';
 import TagSizeModal from 'components/TagSizeModal.vue';
 import PdfGenerator from 'components/PdfGenerator.vue';
 import { useNametagStore } from 'src/composables/useNametagStore';
 import { preloadFonts } from 'src/constants/fonts';
-import { watch } from 'vue';
 
 const $q = useQuasar();
 const store = useNametagStore();
+
+/** Lock page to viewport so the left panel can scroll independently of the preview. */
+function builderPageStyleFn(offset: number, viewportHeight: number) {
+  const h = Math.max(0, viewportHeight - offset);
+  return {
+    minHeight: `${h}px`,
+    height: `${h}px`,
+    maxHeight: `${h}px`,
+    display: 'flex',
+    flexDirection: 'column',
+    overflow: 'hidden',
+  };
+}
 
 const {
   csvHeaders,
   csvRows,
   primarySort,
   secondarySort,
+  backgroundMode,
+  backgroundCsvColumn,
+  backgroundContainsTexts,
   hasCsv,
-  hasBackground,
   backgroundImages,
   previewBackground,
   fields,
@@ -236,8 +305,6 @@ const {
   setCsvData,
   nextPreviewRow,
   prevPreviewRow,
-  addBackgroundImages,
-  clearBackgroundImages,
   addField,
   updateField,
   removeField,
@@ -254,6 +321,8 @@ const {
 const pdfGeneratorRef = ref<InstanceType<typeof PdfGenerator> | null>(null);
 const importInputRef = ref<HTMLInputElement | null>(null);
 const isGenerating = ref(false);
+const showConfigModal = ref(false);
+const showBackgroundModal = ref(false);
 const showTagSizeModal = ref(false);
 
 const progressPhase = ref<'qr' | 'tags'>('tags');
@@ -386,6 +455,9 @@ function onImport(e: Event) {
         tagHeightMm: json.tagHeightMm,
         primarySort: json.primarySort ?? null,
         secondarySort: json.secondarySort ?? null,
+        backgroundMode: json.backgroundMode,
+        backgroundCsvColumn: json.backgroundCsvColumn,
+        backgroundContainsTexts: json.backgroundContainsTexts,
       });
       $q.notify({ type: 'positive', message: 'Design imported' });
     } catch (err) {
@@ -421,20 +493,17 @@ function handleReset() {
     persistent: true,
   }).onOk(() => {
     clearAll();
+    showConfigModal.value = false;
+    showBackgroundModal.value = false;
     $q.notify({ type: 'info', message: 'Design reset' });
   });
 }
 </script>
 
 <style scoped>
-.builder-page {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-}
-
 .builder-content {
   flex: 1;
+  min-height: 0;
   display: flex;
   overflow: hidden;
 }
@@ -445,5 +514,17 @@ function handleReset() {
   height: 0;
   opacity: 0;
   pointer-events: none;
+}
+
+.config-modal-card {
+  width: min(100vw - 48px, 480px);
+  max-width: 100%;
+  max-height: min(90vh, 720px);
+  display: flex;
+  flex-direction: column;
+}
+
+.config-modal-body {
+  max-height: min(70vh, 560px);
 }
 </style>

@@ -23,6 +23,7 @@ import { generatePdf, pregenerateQrCodes } from 'src/utils/pdfGenerator';
 import { preloadFonts } from 'src/constants/fonts';
 import { startKeepAliveAudio, stopKeepAliveAudio } from 'src/utils/keepAliveAudio';
 import type { Field } from 'src/types/nametag';
+import type { BackgroundMode } from 'src/utils/backgroundSelection';
 
 const props = withDefaults(
   defineProps<{
@@ -32,8 +33,18 @@ const props = withDefaults(
     tagWidthMm?: number;
     tagHeightMm?: number;
     showFoldLine?: boolean;
+    backgroundMode?: BackgroundMode;
+    backgroundCsvColumn?: string | null;
+    backgroundContainsTexts?: string[];
   }>(),
-  { tagWidthMm: 180, tagHeightMm: 55, showFoldLine: false }
+  {
+    tagWidthMm: 180,
+    tagHeightMm: 55,
+    showFoldLine: false,
+    backgroundMode: 'random',
+    backgroundCsvColumn: null,
+    backgroundContainsTexts: () => [],
+  }
 );
 
 const emit = defineEmits<{
@@ -93,7 +104,10 @@ async function generate(): Promise<Blob | null> {
       (p) => emit('progress', p),
       props.tagWidthMm,
       props.tagHeightMm,
-      props.showFoldLine
+      props.showFoldLine,
+      props.backgroundMode,
+      props.backgroundCsvColumn ?? null,
+      props.backgroundContainsTexts ?? []
     );
     emit('complete');
     currentPageRows.value = [];

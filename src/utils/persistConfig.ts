@@ -2,6 +2,7 @@ const STORAGE_KEY = 'qcec-nametag-config';
 const MAX_BACKGROUND_SIZE = 4 * 1024 * 1024; // 4MB - localStorage is typically 5MB
 
 import type { Field } from 'src/types/nametag';
+import type { BackgroundMode } from 'src/utils/backgroundSelection';
 import { FONT_NAME_MIGRATION } from 'src/constants/fonts';
 
 /** Migrate old font names to display names in fields */
@@ -28,6 +29,10 @@ export interface PersistedConfig {
   tagHeightMm?: number;
   primarySort?: string | null;
   secondarySort?: string | null;
+  backgroundMode?: BackgroundMode;
+  backgroundCsvColumn?: string | null;
+  /** Per-background substring; parallel to backgroundImages */
+  backgroundContainsTexts?: string[];
 }
 
 export function loadConfig(): Partial<PersistedConfig> | null {

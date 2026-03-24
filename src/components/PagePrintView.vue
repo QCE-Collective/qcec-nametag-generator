@@ -18,7 +18,7 @@
 import { ref, computed } from 'vue';
 import TagPrintView from './TagPrintView.vue';
 import type { Field } from 'src/types/nametag';
-import { VERTICAL_SPACING_MM, TAGS_PER_PAGE } from 'src/types/nametag';
+import { VERTICAL_SPACING_MM, computeTagsPerPage } from 'src/types/nametag';
 
 const PX_PER_MM = 6;
 
@@ -37,6 +37,8 @@ const props = withDefaults(
 
 const tagRefs = ref<(InstanceType<typeof TagPrintView> | null)[]>([]);
 
+const tagsPerPage = computed(() => computeTagsPerPage(props.tagHeightMm));
+
 function setTagRef(idx: number, el: unknown) {
   if (el) {
     tagRefs.value[idx] = el as InstanceType<typeof TagPrintView>;
@@ -45,7 +47,8 @@ function setTagRef(idx: number, el: unknown) {
 
 const paddedRows = computed(() => {
   const r = [...props.rows];
-  while (r.length < TAGS_PER_PAGE) {
+  const n = tagsPerPage.value;
+  while (r.length < n) {
     r.push({});
   }
   return r;
@@ -63,7 +66,8 @@ function getBackground(idx: number): string | null {
 const pageHeightPx = computed(() => {
   const tagH = props.tagHeightMm * PX_PER_MM;
   const spacing = VERTICAL_SPACING_MM * PX_PER_MM;
-  return TAGS_PER_PAGE * tagH + (TAGS_PER_PAGE - 1) * spacing;
+  const n = tagsPerPage.value;
+  return n * tagH + (n - 1) * spacing;
 });
 
 const pageStyle = computed(() => ({

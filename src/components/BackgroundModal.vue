@@ -180,11 +180,34 @@ const {
   backgroundCsvColumn,
   backgroundContainsTexts,
   hasCsv,
+  tagWidthMm,
+  tagHeightMm,
   addBackgroundImages,
   clearBackgroundImages,
   removeBackgroundImage,
   setBackgroundMatchText,
 } = store;
+
+/** Relative tolerance vs tag width÷height (e.g. 2% allows minor rounding). */
+const ASPECT_RATIO_TOLERANCE = 0.02;
+
+function readFileAsDataURL(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = () => reject(reader.error ?? new Error('Read failed'));
+    reader.readAsDataURL(file);
+  });
+}
+
+function loadImageDimensions(src: string): Promise<{ width: number; height: number }> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve({ width: img.naturalWidth, height: img.naturalHeight });
+    img.onerror = () => reject(new Error('Failed to decode image'));
+    img.src = src;
+  });
+}
 
 const fileInputRef = ref<HTMLInputElement | null>(null);
 const lightboxSrc = ref<string | null>(null);
@@ -206,27 +229,46 @@ function triggerUpload() {
   fileInputRef.value?.click();
 }
 
-function onFileChange(e: Event) {
+async function onFileChange(e: Event) {
   const input = e.target as HTMLInputElement;
   const fileList = input.files;
   if (!fileList?.length) return;
 
   const files = Array.from(fileList);
+  const tagRatio = tagWidthMm.value / tagHeightMm.value;
   const urls: string[] = [];
-  let read = 0;
+  const mismatchedNames: string[] = [];
 
-  files.forEach((file) => {
-    const reader = new FileReader();
-    reader.onload = () => {
-      urls.push(reader.result as string);
-      read++;
-      if (read === files.length) {
-        addBackgroundImages(urls);
-        input.value = '';
+  try {
+    for (const file of files) {
+      const dataUrl = await readFileAsDataURL(file);
+      const { width, height } = await loadImageDimensions(dataUrl);
+      if (width > 0 && height > 0) {
+        const imgRatio = width / height;
+        if (Math.abs(imgRatio - tagRatio) / tagRatio > ASPECT_RATIO_TOLERANCE) {
+          mismatchedNames.push(file.name);
+        }
       }
-    };
-    reader.readAsDataURL(file);
-  });
+      urls.push(dataUrl);
+    }
+    addBackgroundImages(urls);
+    if (mismatchedNames.length > 0) {
+      const dim = `${tagWidthMm.value}×${tagHeightMm.value} mm`;
+      $q.notify({
+        type: 'warning',
+        message:
+          mismatchedNames.length === 1
+            ? `"${mismatchedNames[0]}" has a different aspect ratio than the tag (${dim}).`
+            : `${mismatchedNames.length} images have a different aspect ratio than the tag (${dim}).`,
+        ...(mismatchedNames.length > 1 ? { caption: mismatchedNames.join(', ') } : {}),
+        timeout: 8000,
+      });
+    }
+  } catch {
+    $q.notify({ type: 'negative', message: 'Could not read one or more images.' });
+  } finally {
+    input.value = '';
+  }
 }
 
 function onClearAll() {

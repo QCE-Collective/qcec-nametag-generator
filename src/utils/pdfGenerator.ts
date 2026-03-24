@@ -3,7 +3,7 @@ import { jsPDF } from 'jspdf';
 import QRCode from 'qrcode';
 import type { Field } from 'src/types/nametag';
 import {
-  TAGS_PER_PAGE,
+  computeTagsPerPage,
   VERTICAL_SPACING_MM,
   HORIZONTAL_MARGIN_MM,
   TOP_MARGIN_MM,
@@ -77,8 +77,9 @@ export async function generatePdf(
   backgroundCsvColumn: string | null = null,
   backgroundContainsTexts: string[] = []
 ): Promise<Blob> {
+  const tagsPerPage = computeTagsPerPage(tagHeightMm);
   const pageContentHeightMm =
-    TAGS_PER_PAGE * tagHeightMm + (TAGS_PER_PAGE - 1) * VERTICAL_SPACING_MM;
+    tagsPerPage * tagHeightMm + (tagsPerPage - 1) * VERTICAL_SPACING_MM;
   const doc = new jsPDF({
     orientation: 'portrait',
     unit: 'mm',
@@ -107,16 +108,16 @@ export async function generatePdf(
     }
   };
 
-  const numPages = Math.ceil(rows.length / TAGS_PER_PAGE);
+  const numPages = Math.ceil(rows.length / tagsPerPage);
 
   for (let pageNum = 0; pageNum < numPages; pageNum++) {
     if (pageNum > 0) {
       doc.addPage();
     }
 
-    const startIdx = pageNum * TAGS_PER_PAGE;
+    const startIdx = pageNum * tagsPerPage;
     const pageRows = rows
-      .slice(startIdx, startIdx + TAGS_PER_PAGE)
+      .slice(startIdx, startIdx + tagsPerPage)
       .map((r) => r ?? {});
 
     const cacheKey = pageRows
@@ -166,7 +167,7 @@ export async function generatePdf(
     doc.line(A4_WIDTH_MM, 0, A4_WIDTH_MM, A4_HEIGHT_MM);
 
     // Horizontal trim lines: top and bottom of each tag (full page width)
-    for (let i = 0; i < TAGS_PER_PAGE; i++) {
+    for (let i = 0; i < tagsPerPage; i++) {
       const tagTop = topMargin + i * (tagHeightMm + VERTICAL_SPACING_MM);
       const tagBottom = tagTop + tagHeightMm;
       doc.line(0, tagTop, A4_WIDTH_MM, tagTop);
@@ -177,14 +178,14 @@ export async function generatePdf(
     if (showFoldLine) {
       const foldX = horizontalMargin + tagWidthMm / 2;
       doc.setDrawColor(200, 200, 200); // Slightly fainter for fold
-      for (let i = 0; i < TAGS_PER_PAGE; i++) {
+      for (let i = 0; i < tagsPerPage; i++) {
         const tagTop = topMargin + i * (tagHeightMm + VERTICAL_SPACING_MM);
         const tagBottom = tagTop + tagHeightMm;
         doc.line(foldX, tagTop, foldX, tagBottom);
       }
     }
 
-    const completedTags = Math.min((pageNum + 1) * TAGS_PER_PAGE, total);
+    const completedTags = Math.min((pageNum + 1) * tagsPerPage, total);
     onProgress?.({ phase: 'tags', current: completedTags, total });
     await yieldToUi(pageNum);
   }

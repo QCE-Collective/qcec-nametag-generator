@@ -54,8 +54,19 @@ export const SAFE_MARGIN_MM = 5;
 export const A4_WIDTH_MM = 210;
 export const A4_HEIGHT_MM = 297;
 
-/** Layout: 1 tag per row, 5 rows per page */
-export const TAGS_PER_PAGE = 5;
-export const VERTICAL_SPACING_MM = 2; // Small margin between tags
 export const HORIZONTAL_MARGIN_MM = 10;
-export const TOP_MARGIN_MM = 8; // Top margin for PDF export
+/** Top margin for PDF export (mm); tags stack below this. */
+export const TOP_MARGIN_MM = 8;
+
+/** Vertical gap between stacked tags on a PDF page (mm) */
+export const VERTICAL_SPACING_MM = 2; // Small margin between tags
+
+/** Max tags that fit below {@link TOP_MARGIN_MM} on A4 for the given strip height (one column). */
+export function computeTagsPerPage(tagHeightMm: number): number {
+  const usableMm = A4_HEIGHT_MM - TOP_MARGIN_MM;
+  const h = tagHeightMm;
+  const s = VERTICAL_SPACING_MM;
+  if (!(h > 0)) return 1;
+  const n = Math.floor((usableMm + s) / (h + s));
+  return Math.max(1, n);
+}
